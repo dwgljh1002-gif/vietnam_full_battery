@@ -9,8 +9,12 @@
 <link href="https://unpkg.com/jspsych@8.3.0/css/jspsych.css" rel="stylesheet" type="text/css" />
 <style>
   html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+  /* 줄바꿈 시 '~하'/'고'처럼 단어/음절 중간이 잘리지 않도록 — 한글은 음절 단위로
+     줄바꿈이 가능한 게 기본값이라 keep-all로 막고, 베트남어(라틴 문자+공백)에도
+     동일하게 적용해 단어 중간이 아니라 항상 공백에서만 줄이 바뀌도록 통일합니다. */
   body { font-family: 'Noto Sans KR', 'Segoe UI', sans-serif; background: #f4f6fb;
-    display: flex; align-items: center; justify-content: center; }
+    display: flex; align-items: center; justify-content: center;
+    word-break: keep-all; overflow-wrap: normal; }
   /* jsPsych이 자체적으로 만드는 래퍼(#jspsych-content-wrapper 등)에도
      기본 overflow:auto 스타일이 있어서, 이것 때문에 스크롤바가 생길 수 있어 강제로 막습니다. */
   #jspsych-content-wrapper, .jspsych-display-element, #jspsych-content {
@@ -32,6 +36,9 @@
   .math-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .math-tag { font-weight: 700; font-size: 28px; color: #1c3f94; border-left: 6px solid #2554c7;
     padding-left: 16px; }
+  /* 응답 제한 30초 중 5초 남았을 때 보이는 카운트다운 — 비고란 "5초 남았을 때 카운팅다운으로 시간 촉구" 반영 */
+  .math-progress-wrap { display: flex; align-items: center; gap: 12px; }
+  .time-warn { font-weight: 700; font-size: 20px; color: #e53935; }
   .math-progress { background: #2554c7; color: #fff; font-weight: 600; font-size: 18px;
     padding: 12px 26px; border-radius: 26px; }
 
@@ -75,8 +82,12 @@
   .mask { width: 100%; height: 320px; }
 
   /* ── 안내/지시문 화면 전용 ── */
+  /* text-wrap: balance — 다른 소검사들과 동일하게, 줄바꿈이 필요할 때 마지막 줄만
+     짧게 남는(orphan) 것을 브라우저가 자동으로 균형 있게 배분하도록 통일 */
   .info-box { background: #fafbfe; border: 1px solid #e1e6f2; border-radius: 16px;
-    padding: 18px 28px; font-size: 24px; line-height: 1.6; color: #2b2b2b; margin-bottom: 14px; }
+    padding: 18px 28px; font-size: 24px; line-height: 1.6; color: #2b2b2b; margin-bottom: 14px;
+    text-wrap: balance; }
+  .info-box b { font-weight: 800; }
   .badge { display: inline-block; background: #eaf0fd; color: #1c3f94; font-weight: 700;
     font-size: 20px; padding: 10px 22px; border-radius: 20px; border: 1px solid #c7d4f5; margin-bottom: 18px; }
   .highlight { outline: 4px solid #e53935; outline-offset: 3px; }
@@ -125,6 +136,27 @@
     overflow: hidden; }
   .slide-wrap { position: absolute; inset: 0; }
   .slide-img { position: absolute; display: block; }
+
+  /* ── "Bắt đầu kiểm tra" 버튼을 누른 직후 바로 첫 문제로 넘어가지 않고 2초씩
+     보여주는 전환(로딩) 화면 — 요청하신 참고 이미지(흰 원 + 구름 모양 장식 +
+     우측 하단 느낌표 배지)를 그대로 재현한 디자인입니다. .math-wrap 클래스를
+     그대로 써서 기존 scale 시스템(1100×950 프레임)에 자동으로 맞춰집니다. */
+  .transition-stage { position: relative; width: 760px; height: 760px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: center; }
+  .transition-cloud { position: absolute; background: #aebfe6; z-index: 0; }
+  .transition-cloud.c1 { width: 230px; height: 200px; top: 30px; right: 60px;
+    border-radius: 55% 45% 50% 50% / 60% 55% 45% 40%; }
+  .transition-cloud.c2 { width: 120px; height: 120px; top: 190px; right: 0; border-radius: 50%; }
+  .transition-cloud.c3 { width: 230px; height: 230px; left: 0; top: 330px; border-radius: 50%; }
+  .transition-circle { position: relative; z-index: 1; width: 600px; height: 600px; border-radius: 50%;
+    background: #fff; border: 10px solid #dde6f6; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 1px #eef2fb inset; }
+  .transition-text { max-width: 440px; text-align: center; font-size: 30px; line-height: 1.6; color: #3a4a66; }
+  .transition-text b { color: #26324a; }
+  .transition-badge { position: absolute; z-index: 2; right: 4px; bottom: 4px; width: 130px; height: 130px;
+    border-radius: 50%; background: #4a74c4; box-shadow: 0 0 0 10px #eef3fc;
+    display: flex; align-items: center; justify-content: center; }
+  .transition-badge svg { width: 56px; height: 56px; }
   .slide-hitbox { position: absolute; background: transparent; border: none; padding: 0;
     cursor: pointer; }
 </style>
@@ -164,13 +196,24 @@ fitObserver.observe(document.body, { childList: true, subtree: true });
 window.addEventListener("resize", computeScale);
 computeScale();
 
-// ── 수리계산(Tính toán số học) 예시 5문항 ── (키패드에 0도 있어서 "78", "2500" 정답도 입력 가능)
+// ── 수리계산(Tính toán số học) 실제 검사 15문항 (기획서 부록 1~15번 그대로) ──
+// (키패드에 0도 있어서 여러 자리 숫자 정답도 입력 가능; 쉼표/단위는 답에서 제외)
 const ITEMS = [
-  { question: "Minh có 9 cái kẹo, Duy có 2 cái kẹo.<br>Minh có nhiều hơn Duy bao nhiêu cái kẹo?", answer: "7" },
-  { question: "Hương nhặt được 42 viên bi vào tháng 6 và 35 viên bi vào tháng 7.<br>Tổng số viên bi Hương nhặt được trong hai tháng là bao nhiêu?", answer: "77" },
-  { question: "Trong hội trường có 90 cái ghế. Nếu chuyển 12 cái ghế ra ngoài,<br>còn lại bao nhiêu cái ghế trong hội trường?", answer: "78" },
-  { question: "Mỗi cái bàn có 4 cái ghế.<br>8 cái bàn thì có tất cả bao nhiêu cái ghế?", answer: "32" },
-  { question: "Thành được cho 500 đồng tiền tiêu vặt, anh trai được cho gấp 5 lần số tiền đó.<br>Anh trai được cho bao nhiêu tiền?", answer: "2500" },
+  { question: "Trong chuồng gà có 13 con gà. Có 5 con chạy ra ngoài.<br>Chuồng còn lại bao nhiêu con gà?", answer: "8" },
+  { question: "Hà sưu tầm được 54 con tem tháng trước và 33 con tem tháng này.<br>Hà đã sưu tầm được tất cả bao nhiêu con tem trong hai tháng?", answer: "87" },
+  { question: "Trong rổ có 83 quả xoài. Người bán đã bán đi 27 quả ở chợ.<br>Rổ còn lại bao nhiêu quả xoài?", answer: "56" },
+  { question: "Trong dịp Tết, mỗi ngày có 6 vị khách đến thăm.<br>Sau 7 ngày, có tất cả bao nhiêu vị khách đến thăm?", answer: "42" },
+  { question: "Long mua 9 túi bánh Trung Thu, mỗi túi có 4 cái bánh.<br>Long mua tất cả bao nhiêu cái bánh Trung Thu?", answer: "36" },
+  { question: "Mỗi ngày, người ngư dân bắt được 24 kg tôm.<br>Sau 13 ngày, người ngư dân bắt được tất cả bao nhiêu kg tôm?", answer: "312" },
+  { question: "Có 96 học sinh cần chia đều lên các xe buýt.<br>Nếu mỗi xe chở được 8 người, cần bao nhiêu xe buýt?", answer: "12" },
+  { question: "Tàu hỏa từ TP. Hồ Chí Minh đến Hà Nội chạy với vận tốc 175 km/giờ.<br>Sau 4 giờ, tàu đi được tất cả bao nhiêu km?", answer: "700" },
+  { question: "Thu hoạch được 952 kg thóc từ nông trại, chia đều cho các hộ dân trong làng.<br>Nếu mỗi hộ nhận 4 kg, có thể chia cho bao nhiêu hộ?", answer: "238" },
+  { question: "Thư viện có 120 quyển sách. Buổi sáng cho mượn 45 quyển,<br>buổi chiều trả lại 38 quyển. Thư viện hiện có bao nhiêu quyển sách?", answer: "113" },
+  { question: "Mỗi ngày, tiệm bánh nướng 215 ổ bánh mì baguette.<br>Sau 6 ngày, tiệm nướng được tất cả bao nhiêu ổ bánh mì?", answer: "1290" },
+  { question: "Có 480 quả trứng cần xếp vào các hộp.<br>Mỗi hộp xếp 8 quả một hàng và xếp được 5 hàng.<br>Cần bao nhiêu hộp trứng?", answer: "12" },
+  { question: "Tại chợ, một chiếc nón lá có giá gốc 80.000 đồng được giảm giá 20%.<br>Chiếc nón lá đó được bán với giá bao nhiêu đồng?", answer: "64000" },
+  { question: "Một máy bơm có thể bơm được 90 lít nước trong 3 phút.<br>Muốn bơm được 420 lít, cần bao nhiêu phút?", answer: "14" },
+  { question: "5 công nhân cần 18 ngày để hoàn thành một đơn hàng vải.<br>Nếu muốn hoàn thành trong 6 ngày, cần bao nhiêu công nhân?", answer: "15" },
 ];
 
 // ── 지시문 화면에서 보여줄 응답카드 미리보기(mockup) ──
@@ -213,6 +256,29 @@ function mockupCard({
           <button disabled class="keypad-backspace" aria-label="Xóa">⌫</button>
         </div>
         ${button ? `<button class="next-btn ${hl("next")}" disabled>${button}</button>` : ""}
+      </div>
+    </div>`;
+}
+
+// ── "Bắt đầu kiểm tra"를 누른 직후 2초씩 보여주는 전환(로딩) 화면 ──
+// lines: 줄마다 따로 넣을 문자열 배열 (굵게 표시하고 싶은 부분은 <b>…</b>로 직접 감싸서 전달)
+function transitionScreen(lines) {
+  return `
+    <div class="math-wrap transition-wrap">
+      <div class="transition-stage">
+        <div class="transition-cloud c1"></div>
+        <div class="transition-cloud c2"></div>
+        <div class="transition-cloud c3"></div>
+        <div class="transition-circle">
+          <div class="transition-text">${lines.join("<br>")}</div>
+        </div>
+        <div class="transition-badge">
+          <svg viewBox="0 0 24 24">
+            <polygon points="12,3 22,20 2,20" fill="#fff"/>
+            <rect x="11" y="9" width="2" height="6" fill="#4a74c4"/>
+            <circle cx="12" cy="17" r="1.2" fill="#4a74c4"/>
+          </svg>
+        </div>
       </div>
     </div>`;
 }
@@ -422,7 +488,7 @@ class InfoScreenPlugin {
         ? `<div style="position:relative;">
              ${trial.mockup_html || ""}
              <button class="nav-arrow-btn" data-i="0" aria-label="${trial.buttons[0]}"
-               style="position:absolute; top:50%; right:-96px; transform:translateY(-50%);">→</button>
+               style="position:absolute; top:50%; right:-56px; transform:translateY(-50%);">→</button>
            </div>`
         : `${trial.mockup_html || ""}<div class="btn-row">${btnsHtml}</div>`;
 
@@ -491,8 +557,18 @@ class MathItemPlugin {
     const header = `
       <div class="math-header">
         <div class="math-tag">Tính toán số học</div>
-        <div class="math-progress">${progressLabel}</div>
+        <div class="math-progress-wrap">
+          <span class="time-warn" id="time-warn"></span>
+          <div class="math-progress">${progressLabel}</div>
+        </div>
       </div>`;
+
+    // 응답 제한 30초 중 5초 이하 남았을 때만 카운트다운을 화면에 보여줌 ("비고" 항목 반영)
+    const updateTimeWarn = (remaining) => {
+      const el = document.getElementById("time-warn");
+      if (!el) return;
+      el.textContent = remaining > 0 && remaining <= 5 ? `⏳ Còn ${remaining}s` : "";
+    };
 
     // 1) 문제만 5초 제시 (입력 UI 숨김)
     display_element.innerHTML = `
@@ -562,7 +638,8 @@ class MathItemPlugin {
       againBtn.addEventListener("click", () => {
         if (viewedAgain) return;
         viewedAgain = true;
-        clearInterval(countdownId);
+        // 비고: "'다시 보기'를 누른 경우, 응답 제한 시간은 중지 없이 계속 진행될 것" —
+        // countdownId를 멈추지 않고 그대로 흘러가게 둔 채 2초간 문제만 다시 보여줍니다.
         display_element.innerHTML = `
           <div class="math-wrap">
             <div class="content-col">
@@ -570,7 +647,7 @@ class MathItemPlugin {
               <div class="question-card">${trial.question}</div>
             </div>
           </div>`;
-        setTimeout(() => { renderResponsePhase(); startCountdown(); }, 2000); // 2초간 다시 보여줌 (디자인에 구체적 시간 미지정)
+        setTimeout(() => { renderResponsePhase(); }, 2000); // 2초간 다시 보여줌 (디자인에 구체적 시간 미지정); 타이머는 끊김 없이 계속 진행
       });
 
       document.getElementById("retype-btn").addEventListener("click", () => {
@@ -589,8 +666,10 @@ class MathItemPlugin {
 
     const startCountdown = () => {
       let remaining = RESPONSE_MS / 1000;
+      updateTimeWarn(remaining);
       countdownId = setInterval(() => {
         remaining -= 1;
+        updateTimeWarn(remaining);
         if (remaining <= 0) { clearInterval(countdownId); endTrial(true); } // 진짜 30초 시간 초과
       }, 1000);
     };
@@ -704,19 +783,21 @@ const timeline = [];
 
 // ── 0) 타이틀 화면 (원본 PPT 슬라이드를 고해상도로 그대로 캡처한 이미지 한 장 —
 //    배경 원이 잘려있던 부분은 이미지 자체를 보정해서 완전한 동그라미로 만들어둠) ──
-timeline.push({
-  type: InfoScreenPlugin,
-  tag: "",
-  hero: true,
-  body_html: `
-    <div class="slide-wrap">
-      <img class="slide-img" src="images/title-slide.png" alt="Tính toán số học"
-        data-iw="2196" data-ih="1574" data-safe-x="1160" />
-      <button class="slide-hitbox" data-i="0" aria-label="Bắt đầu"
-        data-px="381" data-py="1063" data-pw="393" data-ph="96"></button>
-    </div>`,
-  buttons: ["Bắt đầu"],
-});
+// 다른 소검사들과 동일한 방식(설정 객체 + heroTrial() 함수)으로 통일
+const TITLE = { iw: 2196, ih: 1574, safeX: 1160, px: 381, py: 1063, pw: 393, ph: 96 };
+function heroTrial(imgSrc) {
+  return {
+    type: InfoScreenPlugin, hero: true, buttons: ["Bắt đầu"],
+    body_html: `
+      <div class="slide-wrap">
+        <img class="slide-img" src="${imgSrc}" alt="Tính toán số học"
+          data-iw="${TITLE.iw}" data-ih="${TITLE.ih}" data-safe-x="${TITLE.safeX}" />
+        <button class="slide-hitbox" data-i="0" aria-label="Bắt đầu"
+          data-px="${TITLE.px}" data-py="${TITLE.py}" data-pw="${TITLE.pw}" data-ph="${TITLE.ph}"></button>
+      </div>`,
+  };
+}
+timeline.push(heroTrial("images/title-slide.png"));
 
 // ── 1) 지시문 화면들 (설명 + 응답카드 미리보기, 특정 버튼 하이라이트) ──
 // instructionBlock 전체는 "Nghe lại hướng dẫn"(설명 다시 듣기)를 누르면 루프를 돌아 처음부터 다시 보여줌
@@ -724,21 +805,28 @@ const instructionBlock = [];
 const instructionScreens = [
   {
     body_html: `<div class="info-box">
-        Trong bài kiểm tra này, câu hỏi sẽ được hiển thị trong 5 giây.<br>
-        Sau khi đọc câu hỏi được hiển thị ngắn, hãy nhập đáp án bằng bàn phím xuất hiện trên màn hình.
+        Trong bài kiểm tra này, câu hỏi sẽ được hiển thị trong <b>5 giây</b>.<br>
+        Sau khi đọc câu hỏi được hiển thị ngắn,<br>
+        hãy nhập đáp án bằng <b>bàn phím</b> xuất hiện trên màn hình.
       </div>`,
     // 뒤에 이어지는 다른 설명 화면들(86)과 숫자를 통일
     mockup: mockupCard({ animateDigits: ["8", "6"] }),
   },
   {
     // "Tiếp theo" 설명 — 키패드 애니메이션 없이, 카드 안 Tiếp theo 버튼이 주기적으로 눌리는 연출만
-    body_html: `<div class="info-box">Sau khi nhập đáp án, hãy nhấn nút "Tiếp theo" để tiếp tục bài kiểm tra.</div>`,
+    body_html: `<div class="info-box">
+        Sau khi nhập đáp án,<br>
+        hãy nhấn nút <b>"Tiếp theo"</b> để tiếp tục bài kiểm tra.
+      </div>`,
     mockup: mockupCard({ answerValue: "86", highlight: "next", animType: "press-next" }),
   },
   {
     // "Xem lại" 설명 — 키패드 애니메이션 없이, Xem lại 버튼이 눌리면서 문제(80+6=86)가 잠깐 다시 보였다 사라지는 연출
     // 입력값(86)과 다시 보기로 뜨는 문제(80+6=86)가 서로 일치하도록 통일
-    body_html: `<div class="info-box">Mỗi câu hỏi chỉ có thể xem lại một lần bằng cách nhấn nút "Xem lại" ở bên trái.</div>`,
+    body_html: `<div class="info-box">
+        Mỗi câu hỏi <b>chỉ có thể xem lại một lần</b><br>
+        bằng cách nhấn nút <b>"Xem lại"</b> ở bên trái.
+      </div>`,
     mockup: mockupCard({
       answerValue: "86",
       highlight: "again",
@@ -748,14 +836,26 @@ const instructionScreens = [
   },
   {
     // "Nhập lại" 설명 — 키패드 애니메이션 없이, Nhập lại 버튼이 눌리면서 입력값(86)이 사라졌다 돌아오는 연출
-    body_html: `<div class="info-box">Để sửa đáp án, hãy nhấn nút "Nhập lại".</div>`,
+    body_html: `<div class="info-box">Để sửa đáp án, hãy nhấn nút <b>"Nhập lại"</b>.</div>`,
     mockup: mockupCard({ answerValue: "86", highlight: "retype", animType: "press-retype", animValue: "86" }),
   },
   {
-    // 자유 수정 설명 — 위 예시(86)와 겹치지 않도록, 전혀 다른 숫자(75)를 입력하는 걸 보여줘서
-    // "다음을 누르기 전까지는 어떤 값으로든 자유롭게 바꿀 수 있다"는 걸 더 명확히 전달
-    body_html: `<div class="info-box">Bạn có thể thay đổi câu trả lời thoải mái trước khi nhấn nút "Tiếp theo".</div>`,
-    mockup: mockupCard({ animateDigits: ["7", "5"], highlight: "next" }),
+    // 자유 수정 설명 — 다른 화면들과 동일하게 86을 입력하는 연출로 통일
+    body_html: `<div class="info-box">
+        Bạn có thể thay đổi câu trả lời thoải mái<br>
+        trước khi nhấn nút <b>"Tiếp theo"</b>.
+      </div>`,
+    mockup: mockupCard({ animateDigits: ["8", "6"], highlight: "next" }),
+  },
+  {
+    // 제한시간 자동 진행 + 응답 속도/정확성 안내 — 기획서 원문 문단의 마지막 두 문장이
+    // 기존 vi 버전에는 빠져 있었던 것을 ko 버전과 동일하게 추가했습니다.
+    body_html: `<div class="info-box">
+        Ngay cả khi bạn đang nhập đáp án, nếu hết <b>thời gian giới hạn</b>,<br>
+        câu hỏi tiếp theo sẽ tự động xuất hiện.<br>
+        Vui lòng trả lời <b>nhanh và chính xác</b> nhất có thể.
+      </div>`,
+    mockup: mockupCard({ answerValue: "86", selectedDigit: 6 }),
   },
 ];
 
@@ -819,7 +919,30 @@ timeline.push({
   },
 });
 
-// (공통 경고 화면 2장 제거 — 닫기 화면의 "Bắt đầu kiểm tra" 버튼을 누르면 바로 실제 문항으로 넘어감)
+// "Bắt đầu kiểm tra"를 누른 직후 바로 첫 문제로 넘어가지 않고, 제한시간 자동진행 +
+// 빠르고 정확히 안내를 다시 보여주는 전환 화면 2장(버튼 없이 각 2초 후 자동 진행)
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: () => transitionScreen([
+    "Khi hết thời gian",
+    "quy định cho mỗi câu hỏi,",
+    "hệ thống sẽ tự động",
+    "chuyển sang",
+    "câu tiếp theo.",
+  ]),
+  choices: "NO_KEYS",
+  trial_duration: 3000,
+});
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: () => transitionScreen([
+    "Hãy trả lời",
+    "<b>nhanh và chính xác</b>",
+    "nhất có thể.",
+  ]),
+  choices: "NO_KEYS",
+  trial_duration: 3000,
+});
 
 let consecutiveZero = 0;
 
@@ -831,15 +954,12 @@ ITEMS.forEach((item, idx) => {
     item_index: idx + 1,
     total_items: ITEMS.length,
     data: { phase: "math_item", item_index: idx + 1, question: item.question, correct_answer: item.answer },
+    // 중지 규칙: 5문항 연속 0점이면 이후 문항은 실제로 건너뜀(이전에는 빈 더미 트라이얼만
+    // 끼워 넣고 문항 자체는 계속 진행되는 버그가 있었습니다 — conditional_function으로 수정)
+    conditional_function: () => consecutiveZero < 5,
     on_finish: (data) => {
       consecutiveZero = data.correct ? 0 : consecutiveZero + 1;
     },
-  });
-
-  // 중지 규칙: 5문항 연속 0점이면 이후 문항 건너뜀
-  timeline.push({
-    timeline: [{ type: jsPsychHtmlKeyboardResponse, trial_duration: 0, choices: "NO_KEYS", stimulus: "" }],
-    conditional_function: () => consecutiveZero >= 5,
   });
 });
 
