@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tri giác vận động - Demo</title>
+<script src="https://unpkg.com/jspsych@8.3.0"></script>
+<script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.2.0"></script>
+<script src="https://unpkg.com/@jspsych/extension-pipe@0.2.0"></script>
+<script src="../../assets/flow.js"></script>
+<link href="https://unpkg.com/jspsych@8.3.0/css/jspsych.css" rel="stylesheet" type="text/css" />
+<style>
+
+  html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+  body { font-family: 'Noto Sans KR', 'Segoe UI', sans-serif; background: #f4f6fb;
+    display: flex; align-items: center; justify-content: center; }
+  #jspsych-content-wrapper, .jspsych-display-element, #jspsych-content {
+    height: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important;
+    overflow: hidden !important; display: flex !important; align-items: center !important;
+    justify-content: center !important;
+  }
+  /* 고정 크기 프레임(1100×950)을 항상 같은 크기로 그린 뒤, 창 크기에 맞춰 통째로 한 번만 scale합니다. */
+  .math-wrap { width: 1300px; height: 950px; box-sizing: border-box; margin: 0;
+    padding: 50px 80px; display: flex; flex-direction: column; justify-content: center;
+    overflow: hidden; transform-origin: center center; flex-shrink: 0; }
+  .content-col { width: 1120px; margin: 0 auto; position: relative; }
+
+  .math-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; min-height: 52px; }
+  .math-tag { font-weight: 700; font-size: 31px; color: #1c3f94; border-left: 6px solid #2554c7;
+    padding-left: 16px; }
+  .header-right { display: flex; align-items: center; gap: 14px; }
+  .math-progress { background: #2554c7; color: #fff; font-weight: 600; font-size: 20px;
+    padding: 12px 26px; border-radius: 26px; }
+  .timer-badge { visibility: hidden; background: #fdecea; color: #c62828; border: 2px solid #f3c6c2;
+    font-weight: 700; font-size: 20px; padding: 8px 20px; border-radius: 24px; min-width: 64px; text-align: center; }
+  .timer-badge.on { visibility: visible; animation: timer-pulse 1s ease-in-out infinite; }
+  @keyframes timer-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  .info-box { background: #fafbfe; border: 1px solid #e1e6f2; border-radius: 16px;
+    padding: 16px 28px; font-size: 27px; line-height: 1.6; color: #2b2b2b; margin-bottom: 14px; min-height: 40px; text-wrap: balance; word-break: keep-all; }
+  .info-box b { font-weight: 800; }
+  /* outline은 둥근 모서리(border-radius)를 못 따라가는 브라우저가 있고, 크기도 키우고 설명 중 주의를
+     끌기 위해 펄스 애니메이션을 넣은 box-shadow 방식으로 통일 */
+  .highlight { box-shadow: 0 0 0 6px #e53935; animation: mo-hl-pulse 1.1s ease-in-out infinite; }
+  @keyframes mo-hl-pulse { 0%, 100% { box-shadow: 0 0 0 6px #e53935; } 50% { box-shadow: 0 0 0 9px #ff8a80; } }
+  .mo-decor-hl { animation: mo-decor-pulse 1.1s ease-in-out infinite; }
+  @keyframes mo-decor-pulse { 0%, 100% { border-color: #e53935; } 50% { border-color: #ff8a80; } }
+  .mockup-inert { pointer-events: none; user-select: none; }
+  .btn-row { text-align: center; margin-top: 20px; }
+  .next-btn { display: block; width: 100%; font-size: 31px; font-weight: 700; padding: 18px 0;
+    border-radius: 14px; border: none; background: #2554c7; color: white; cursor: pointer; }
+  .next-btn:hover { background: #1c3f94; }
+  .btn-row .next-btn { display: inline-block; width: auto; min-width: 260px; margin: 0 10px; padding: 16px 36px; white-space: nowrap; border-radius: 40px; }
+  .btn-row .secondary-btn { background: #fff; color: #2554c7; border: 2px solid #2554c7; }
+  .btn-row .secondary-btn:hover { background: #eaf0fd; }
+  button:disabled { cursor: default !important; }
+  .nav-arrow-btn { flex: 0 0 auto; width: 84px; height: 84px; border-radius: 50%; border: none;
+    background: #2554c7; color: #fff; font-size: 32px; line-height: 1; cursor: pointer;
+    box-shadow: 0 10px 24px rgba(37,84,199,0.35); display: flex; align-items: center; justify-content: center; }
+  .nav-arrow-btn:hover { background: #1c3f94; }
+  .btn-pressed { transform: scale(0.95); filter: brightness(0.9); transition: transform .12s ease, filter .12s ease; }
+  .mini-wrap { border: 2px solid #2554c7; border-radius: 20px; padding: 14px; background: #fff; }
+  .mini-inner { border: 1px solid #e1e6f2; border-radius: 16px; padding: 8px 20px 12px; zoom: 0.62; }
+  .pill { font-family: inherit; padding: 12px 34px; border-radius: 40px; font-weight: 700; font-size: 22px;
+    border: 2px solid #cfd6e6; background: #fff; color: #44506b; cursor: pointer; min-width: 200px; white-space: nowrap; }
+  .pill.primary { background: #2554c7; color: #fff; border-color: #2554c7; }
+  .pill:hover:not(:disabled) { filter: brightness(0.96); }
+  .pill:disabled { background: #b9c7ea; border-color: #b9c7ea; color: #fff; }
+
+  /* 타이틀 화면 */
+  .title-full { position: fixed; inset: 0; width: 100vw; height: 100vh; background: #f4f6fb; overflow: hidden; }
+
+  /* ── "검사하기/시작하기"를 누른 직후 바로 첫 문제로 넘어가지 않고 3초씩 보여주는
+     전환(로딩) 화면 — 수리계산과 동일한 디자인(흰 원 + 구름 모양 장식 + 우측 하단
+     느낌표 배지)입니다. .math-wrap 클래스를 그대로 써서 기존 scale 시스템에
+     자동으로 맞춰집니다. ── */
+  .transition-stage { position: relative; width: 760px; height: 760px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: center; }
+  .transition-cloud { position: absolute; background: #aebfe6; z-index: 0; }
+  .transition-cloud.c1 { width: 230px; height: 200px; top: 30px; right: 60px;
+    border-radius: 55% 45% 50% 50% / 60% 55% 45% 40%; }
+  .transition-cloud.c2 { width: 120px; height: 120px; top: 190px; right: 0; border-radius: 50%; }
+  .transition-cloud.c3 { width: 230px; height: 230px; left: 0; top: 330px; border-radius: 50%; }
+  .transition-circle { position: relative; z-index: 1; width: 600px; height: 600px; border-radius: 50%;
+    background: #fff; border: 10px solid #dde6f6; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 1px #eef2fb inset; }
+  .transition-text { max-width: 440px; text-align: center; font-size: 30px; line-height: 1.6; color: #3a4a66; }
+  .transition-text b { color: #26324a; }
+  .transition-badge { position: absolute; z-index: 2; right: 4px; bottom: 4px; width: 130px; height: 130px;
+    border-radius: 50%; background: #4a74c4; box-shadow: 0 0 0 10px #eef3fc;
+    display: flex; align-items: center; justify-content: center; }
+  .transition-badge svg { width: 56px; height: 56px; }
+  .slide-wrap { position: absolute; inset: 0; }
+  .slide-img { position: absolute; display: block; border-radius: 14px; box-shadow: 0 6px 24px rgba(30,50,100,.15); }
+  .slide-hitbox { position: absolute; background: transparent; border: none; padding: 0; cursor: pointer; }
+
+  /* ── 지각조직 ── */
+  .po-main { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 16px; }
+  .po-panel { width: 430px; height: 316px; box-sizing: border-box; border: 2px solid #e1e6f2; border-radius: 18px;
+    background: #f8f9fc; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .po-panel.right { background: #eef7fe; border-color: #3cc0f5; }
+  .po-arrow { color: #2554c7; font-weight: 800; font-size: 30px; }
+  .po-stim { width: 210px; height: 210px; flex: 0 0 auto; }
+  .po-stim.rot { transform: rotate(45deg); }
+  .po-grid { display: grid; width: 250px; height: 250px; background: #f1f2f6; border: 1px solid #d5dae6; box-sizing: border-box; }
+  .po-cell { border: 1px solid #d5dae6; box-sizing: border-box; position: relative; cursor: pointer; touch-action: manipulation; }
+  .po-cell svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .po-cell.sel { background: #fbd9d9; outline: 4px solid #e53935; outline-offset: -4px; z-index: 2; }
+  .po-cell.filled.sel { background: transparent; }
+  .po-tray { display: flex; justify-content: space-around; align-items: center; background: #f8f9fc;
+    border: 1px solid #e1e6f2; border-radius: 18px; padding: 16px 26px; margin-bottom: 16px; }
+  .po-blk { width: 92px; height: 92px; box-sizing: border-box; background: #fff; border: 2px solid #d3d9e8;
+    border-radius: 8px; padding: 0; cursor: pointer; position: relative; touch-action: manipulation; }
+  .po-blk svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .po-blk.sel { outline: 5px solid #e53935; outline-offset: 2px; }
+  .po-btns { display: flex; justify-content: center; gap: 26px; }
+
+  /* ── 지각운동 ── */
+  .mo-legend-wrap { position: relative; width: 560px; margin: 22px auto 0; }
+  .mo-legend-label { position: absolute; top: -17px; left: 50%; transform: translateX(-50%); background: #dde7f7;
+    color: #2b4a8b; font-weight: 700; font-size: 18px; padding: 3px 28px; border-radius: 8px; }
+  .mo-legend { display: flex; justify-content: center; gap: 6px; border: 3px solid #c3d6ee; border-radius: 14px;
+    padding: 22px 14px 14px; background: #fff; }
+  .mo-pair { width: 52px; border: 1.5px solid #cfd8ea; border-radius: 7px; overflow: hidden; text-align: center; background: #fff; }
+  .mo-pair .sym { height: 46px; background: #eef4fe; display: flex; align-items: center; justify-content: center; }
+  .mo-pair .sym img, .mo-q .sym img { display: block; height: 30px; width: 30px; }
+  .mo-pair .dg { height: 36px; line-height: 36px; font-weight: 800; color: #2563eb; font-size: 22px; background: #f7f8fb; }
+  .mo-hr { height: 1px; background: #d9dde8; margin: 40px auto 95px; width: 92%; }
+  .mo-rows { display: flex; flex-direction: column; gap: 18px; align-items: center; min-height: 190px; }
+  .mo-row { display: flex; gap: 8px; }
+  .mo-row.empty { visibility: hidden; }
+  .mo-q { width: 70px; border: 1.5px solid #d3d9e6; border-radius: 8px; overflow: hidden; text-align: center; background: #fff; box-sizing: border-box; }
+  .mo-q .sym { height: 62px; display: flex; align-items: center; justify-content: center; }
+  .mo-q .sym img { height: 36px; width: 36px; }
+  .mo-q .ans { height: 54px; line-height: 54px; font-size: 28px; font-weight: 800; color: #2554c7; border-top: 1.5px solid #e1e6f2; background: #fafbfe; }
+  .mo-q.active { outline: 4px solid #e53935; outline-offset: 1px; }
+  .mo-qrow-hl { outline: 4px solid #e53935; outline-offset: 4px; border-radius: 10px; }
+  .mo-keypad { display: flex; justify-content: center; gap: 9px; border: 1.5px solid #dde2ee; border-radius: 12px;
+    background: #f6f7fa; padding: 14px 18px; width: fit-content; margin: 48px auto 0; }
+  .mo-key { width: 70px; height: 64px; font-size: 30px; font-weight: 600; font-family: inherit; border: 2px solid #cfd6e6;
+    border-radius: 10px; background: #fff; color: #444; cursor: pointer; touch-action: manipulation; }
+  .mo-key:active { background: #dce8fb; }
+  .mo-key.flash { background: #fdecea; border-color: #e53935; }
+
+  /* ── 논리추론 ── */
+  .lg-stage { position: relative; }
+  .lg-label { position: absolute; left: 0; top: 50%; transform: translateY(-50%); font-weight: 800; font-size: 26px; color: #1f2430; }
+  .lg-stimbox { position: relative; height: 410px; display: flex; align-items: center; justify-content: center; }
+  .lg-stim { position: relative; width: 660px; border: 5px solid #99a9cc; box-sizing: content-box; background: #fff; }
+  .lg-stim img { display: block; width: 100%; }
+  .lg-blank { position: absolute; box-sizing: border-box; }
+  .lg-blank.pink { background: rgba(240,150,150,.55); border: 3px solid #e53935; }
+  .lg-blank.line { border: 3px solid #e53935; }
+  .lg-opts { display: grid; grid-template-columns: repeat(3, 250px); gap: 26px 40px; justify-content: center; margin-top: 18px; }
+  .lg-opt { border: 4px solid #99a9cc; background-color: #fff; background-repeat: no-repeat; background-size: 300% 200%;
+    cursor: pointer; padding: 0; box-sizing: content-box; width: 250px; }
+  .lg-opt:hover { border-color: #5f78b8; }
+  .lg-opt.sel { border-color: #2554c7; box-shadow: 0 0 0 4px #bcd0f7; }
+  .lg-opt.hl { border-color: #e53935; border-width: 5px; }
+  .lg-opt.sel.hl { box-shadow: 0 0 0 4px #bcd0f7; }
+  .lg-res-row { display: flex; align-items: center; gap: 10px; margin: 18px 0; }
+  .lg-res-stim { flex: 0 0 236px; border: 3px solid #cfd6e6; border-radius: 28px; overflow: hidden; background: #fff; }
+  .lg-res-stim img { display: block; width: 100%; }
+  .lg-res-opt { flex: 1 1 0; border: 2px solid #dfe3ee; border-radius: 10px; background-color: #fff;
+    background-repeat: no-repeat; background-size: 300% 200%; }
+  .lg-res-opt.chosen { border-color: #8fcfc4; box-shadow: inset 0 0 0 100px rgba(143,207,196,.55); }
+</style>
+</head>
+<body></body>
+<script>
+
+const { ParameterType } = jsPsychModule;
+
+// ── 고정 프레임(1100×950)을 창 크기만 기준으로 한 번 계산한 scale값으로 일괄 축소 ──
+const FRAME_W = 1300, FRAME_H = 950;
+let currentScale = 1;
+function computeScale() {
+  const margin = 12;
+  currentScale = Math.min((window.innerWidth - margin * 2) / FRAME_W, (window.innerHeight - margin * 2) / FRAME_H);
+  applyScale();
+}
+function applyScale() {
+  const wrap = document.querySelector(".math-wrap");
+  if (!wrap) return;
+  wrap.style.transform = `scale(${currentScale})`;
+}
+new MutationObserver(() => applyScale()).observe(document.body, { childList: true, subtree: true });
+window.addEventListener("resize", computeScale);
+computeScale();
+
+// ── 공통 설정 ──
+const WARN_SEC = 5;            // 남은 시간 5초부터 카운트다운 표시
+const USE_STOP_RULE = true;    // 중지 규칙(5문항 연속 0점 시 중지)을 쓰지 않으려면 false
+const STOP_AFTER = 5;
+
+function randomID(len = 10) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+const subjectId = (localStorage.getItem("vit_participant_code") || "").trim() || randomID(10);
+
+function csvEscape(value) {
+  if (value === undefined || value === null) return "";
+  const s = String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function toCSV(columns, rows) {
+  const lines = [columns.join(",")];
+  rows.forEach((r) => lines.push(columns.map((c) => csvEscape(r[c])).join(",")));
+  return lines.join("\n");
+}
+// DataPipe 업로드가 실패했을 때 브라우저 콘솔에서 downloadFilteredCSV() 로 수동 백업을 받을 수 있습니다.
+function downloadFilteredCSV() {
+  const blob = new Blob([buildFilteredCSVString()], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `${TEST_ID}_data_${CFG.lang}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// 타이틀 이미지를 화면에 꽉 채우되, 글씨/버튼이 있는 "안전 영역"(data-safe-x)은 잘리지 않도록 배치
+function layoutCoverHitboxes(container) {
+  const img = container.querySelector(".slide-img");
+  if (!img) return;
+  const iw = Number(img.dataset.iw) || img.naturalWidth;
+  const ih = Number(img.dataset.ih) || img.naturalHeight;
+  if (!iw || !ih) return;
+  const rect = container.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+  // 실제 검사 화면(고정 프레임)과 비슷한 크기로 가운데에 배치 (프레임의 약 85%)
+  const s0 = Math.min((W - 24) / FRAME_W, (H - 24) / FRAME_H);
+  const boxW = FRAME_W * s0 * 0.85, boxH = FRAME_H * s0 * 0.85;
+  const scale = Math.min(boxW / iw, boxH / ih);
+  const dispW = iw * scale, dispH = ih * scale;
+  const offX = (W - dispW) / 2, offY = (H - dispH) / 2;
+  img.style.left = offX + "px"; img.style.top = offY + "px";
+  img.style.width = dispW + "px"; img.style.height = dispH + "px";
+  container.querySelectorAll(".slide-hitbox").forEach((btn) => {
+    btn.style.left = offX + Number(btn.dataset.px) * scale + "px";
+    btn.style.top = offY + Number(btn.dataset.py) * scale + "px";
+    btn.style.width = Number(btn.dataset.pw) * scale + "px";
+    btn.style.height = Number(btn.dataset.ph) * scale + "px";
+  });
+}
+
+// ── "검사하기/시작하기"를 누른 직후 3초씩 보여주는 전환(로딩) 화면 ──
+function transitionScreen(lines) {
+  return `
+    <div class="math-wrap transition-wrap">
+      <div class="transition-stage">
+        <div class="transition-cloud c1"></div>
+        <div class="transition-cloud c2"></div>
+        <div class="transition-cloud c3"></div>
+        <div class="transition-circle">
+          <div class="transition-text">${lines.join("<br>")}</div>
+        </div>
+        <div class="transition-badge">
+          <svg viewBox="0 0 24 24">
+            <polygon points="12,3 22,20 2,20" fill="#fff"/>
+            <rect x="11" y="9" width="2" height="6" fill="#4a74c4"/>
+            <circle cx="12" cy="17" r="1.2" fill="#4a74c4"/>
+          </svg>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── 지시문/안내 화면용 범용 플러그인 ──
+// after_render(display_element) 가 함수를 돌려주면 화면을 떠날 때 그 함수를 호출합니다(예시 화면 연출 정리용).
+class InfoScreenPlugin {
+  static info = {
+    name: "info-screen",
+    version: "2.0.0",
+    parameters: {
+      tag: { type: ParameterType.STRING, default: "" },
+      header_right: { type: ParameterType.HTML_STRING, default: "" },
+      body_html: { type: ParameterType.HTML_STRING, default: "" },
+      mockup_html: { type: ParameterType.HTML_STRING, default: "" },
+      buttons: { type: ParameterType.STRING, array: true, default: ["→"] },
+      use_arrow_nav: { type: ParameterType.BOOL, default: false },
+      hero: { type: ParameterType.BOOL, default: false },
+      after_render: { type: ParameterType.FUNCTION, default: null },
+    },
+    data: { response: { type: ParameterType.STRING } },
+  };
+  constructor(jsPsych) { this.jsPsych = jsPsych; }
+  trial(display_element, trial) {
+    let cleanup = null;
+    const done = (label) => { if (cleanup) cleanup(); this.jsPsych.finishTrial({ response: label }); };
+    if (trial.hero) {
+      display_element.innerHTML = `<div class="title-full">${trial.body_html}</div>`;
+      const container = display_element.querySelector(".title-full");
+      const img = container.querySelector(".slide-img");
+      const relayout = () => layoutCoverHitboxes(container);
+      if (img) { if (img.complete && img.naturalWidth) relayout(); else img.addEventListener("load", relayout); }
+      window.addEventListener("resize", relayout);
+      display_element.querySelectorAll("[data-i]").forEach((btn) => {
+        btn.addEventListener("click", () => { window.removeEventListener("resize", relayout); done(trial.buttons[btn.dataset.i]); });
+      });
+      return;
+    }
+    const multi = trial.buttons.length > 1;
+    const btnsHtml = trial.buttons.map((label, i) =>
+      `<button class="next-btn ${multi && i === 0 ? "secondary-btn" : ""}" data-i="${i}">${label}</button>`).join("");
+    const bodyAndNav = trial.use_arrow_nav && !multi
+      ? `<div style="position:relative;">${trial.mockup_html || ""}
+           <button class="nav-arrow-btn" data-i="0" aria-label="${trial.buttons[0]}"
+             style="position:absolute; top:50%; right:-56px; transform:translateY(-50%);">→</button></div>`
+      : `${trial.mockup_html || ""}<div class="btn-row">${btnsHtml}</div>`;
+    display_element.innerHTML = `
+      <div class="math-wrap"><div class="content-col">
+        ${trial.tag ? `<div class="math-header"><div class="math-tag">${trial.tag}</div><div class="header-right">${trial.header_right || ""}</div></div>` : ""}
+        ${trial.body_html}${bodyAndNav}
+      </div></div>`;
+    if (trial.after_render) cleanup = trial.after_render(display_element);
+    display_element.querySelectorAll("[data-i]").forEach((btn) => {
+      btn.addEventListener("click", () => done(trial.buttons[btn.dataset.i]));
+    });
+  }
+}
+
+function heroTrial(imgSrc) {
+  return {
+    type: InfoScreenPlugin, hero: true, buttons: [CFG.startBtn],
+    body_html: `
+      <div class="slide-wrap">
+        <img class="slide-img" src="${imgSrc}" alt="${CFG.tag}"
+          data-iw="${CFG.title.iw}" data-ih="${CFG.title.ih}" data-safe-x="${CFG.title.safeX}" />
+        <button class="slide-hitbox" data-i="0" aria-label="${CFG.startBtn}"
+          data-px="${CFG.title.px}" data-py="${CFG.title.py}" data-pw="${CFG.title.pw}" data-ph="${CFG.title.ph}"></button>
+      </div>`,
+  };
+}
+
+// 단계별 연출(예시 화면에서 상태가 바뀌는 애니메이션): states 를 interval 간격으로 반복 적용
+function loopStates(root, selector, states, apply, interval = 900) {
+  const el = root.querySelector(selector);
+  if (!el) return null;
+  let i = 0;
+  const step = () => { apply(el, states[i % states.length]); i++; };
+  step();
+  const id = setInterval(step, interval);
+  return () => clearInterval(id);
+}
+
+function makeJsPsych(testId) {
+  return initJsPsych({
+    extensions: [{
+      type: jsPsychExtensionPipe,
+      params: {
+        experiment_id: "kWfRmZqO824v",
+        // 다른 검사 결과와 파일이 섞이지 않도록 검사·언어를 파일명에 넣습니다.
+        filename: () => VIT.fileName(subjectId),
+        data_string: buildFilteredCSVString,
+      },
+    }],
+    on_finish: () => VIT.finish(),
+  });
+}
+
+function endScreen() {
+  return { type: jsPsychHtmlKeyboardResponse, stimulus: VIT.endStimulus(CFG.endHtml), choices: [" "], trial_duration: VIT.endDuration() };
+}
+
+// ════════════════════════════════════════════════════════════
+// ▼ 지시문·버튼 문구 수정 구역 (instr 안의 각 줄이 안내 화면 한 장입니다)
+//   <br> = 줄바꿈, <b>…</b> = 굵게. 줄 위치는 <br> 를 넣고 빼서 맞추세요.
+//   수정 후에는 따옴표(")와 쉼표(,)가 빠지지 않았는지만 확인하세요.
+// ════════════════════════════════════════════════════════════
+const CFG = {
+ "lang": "vi",
+ "tag": "Tri giác vận động",
+ "htmlLang": "vi",
+ "pageTitle": "Tri giác vận động - Demo",
+ "legendLabel": "Bảng mẫu",
+ "startBtn": "Bắt đầu",
+ "replayBtn": "Nghe lại hướng dẫn",
+ "beginBtn": "Bắt đầu kiểm tra",
+ "instr": [
+  "Ở phía trên màn hình có <b>bảng mẫu</b>.",
+  "Hàng trên của bảng mẫu là các ký hiệu, hàng dưới là các chữ số<br>tương ứng với từng ký hiệu.",
+  "Ở phía dưới màn hình có bảng câu hỏi.",
+  "Hàng trên của bảng câu hỏi hiển thị <b>ký hiệu</b>, còn hàng dưới để trống.",
+  "Hãy nhìn ký hiệu ở hàng trên,",
+  "tìm chữ số tương ứng bên dưới ký hiệu đó trong bảng mẫu,<br>sau đó nhập đáp án bằng bàn phím số ở phía dưới màn hình.",
+  "Ở câu đầu tiên, ký hiệu này tương ứng với số 1 trong bảng mẫu.<br>Vì vậy, hãy nhập số 1 bằng bàn phím số.",
+  "Khi hết <b>thời gian quy định</b> cho mỗi câu hỏi, hệ thống sẽ tự động<br>chuyển sang câu tiếp theo. Hãy trả lời <b>nhanh và chính xác</b> nhất có thể.",
+  "Nếu muốn nghe lại phần hướng dẫn, hãy nhấn nút <b>“Nghe lại hướng dẫn”</b>,<br>để bắt đầu bài kiểm tra, hãy nhấn nút <b>“Bắt đầu kiểm tra”</b>."
+ ],
+ "endHtml": "<h1>Bài kiểm tra đã kết thúc.</h1><p>Kết quả đang được tự động lưu lại. Nhấn phím cách để kết thúc.</p>",
+ "title": {
+  "iw": 2246,
+  "ih": 1575,
+  "safeX": 1321,
+  "px": 259,
+  "py": 1103,
+  "pw": 457,
+  "ph": 113
+ },
+ "matrix": [
+  [
+   1,
+   4,
+   8,
+   2,
+   7,
+   6,
+   9,
+   3,
+   5,
+   8
+  ],
+  [
+   3,
+   1,
+   9,
+   2,
+   5,
+   6,
+   4,
+   3,
+   7,
+   2
+  ],
+  [
+   9,
+   8,
+   1,
+   4,
+   7,
+   6,
+   5,
+   9,
+   1,
+   2
+  ],
+  [
+   4,
+   7,
+   2,
+   5,
+   6,
+   9,
+   5,
+   8,
+   6,
+   4
+  ],
+  [
+   3,
+   1,
+   7,
+   8,
+   3,
+   1,
+   3,
+   9,
+   6,
+   3
+  ],
+  [
+   9,
+   7,
+   5,
+   8,
+   6,
+   2,
+   8,
+   7,
+   2,
+   8
+  ],
+  [
+   5,
+   9,
+   4,
+   7,
+   8,
+   3,
+   1,
+   4,
+   2,
+   6
+  ],
+  [
+   1,
+   7,
+   9,
+   2,
+   5,
+   3,
+   4,
+   8,
+   6,
+   5
+  ],
+  [
+   9,
+   8,
+   1,
+   9,
+   5,
+   1,
+   4,
+   2,
+   6,
+   9
+  ],
+  [
+   8,
+   7,
+   3,
+   5,
+   6,
+   4,
+   7,
+   2,
+   3,
+   9
+  ],
+  [
+   6,
+   8,
+   3,
+   1,
+   8,
+   4,
+   7,
+   5,
+   2,
+   9
+  ],
+  [
+   6,
+   7,
+   4,
+   5,
+   6,
+   3,
+   1,
+   8,
+   4,
+   1
+  ],
+  [
+   9,
+   5,
+   7,
+   3,
+   6,
+   4,
+   3,
+   2,
+   7,
+   5
+  ],
+  [
+   1,
+   3,
+   2,
+   9,
+   8,
+   6,
+   1,
+   4,
+   3,
+   9
+  ],
+  [
+   5,
+   6,
+   7,
+   8,
+   6,
+   4,
+   5,
+   2,
+   1,
+   2
+  ]
+ ],
+ "glyphs": {
+  "1": "data:image/png;base64,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",
+  "2": "data:image/png;base64,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",
+  "3": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAYAAAA8AXHiAAABe0lEQVR42u3YsQnCUABF0RdJLQgWLiBYOol7ZAU3cAMLwS1cy85GJDaW6Yzm/3AOpE54XPJDmvVmFxjbwgQIC2EhLBAWwkJYICyEhbBAWAgLYYGwEBbCAmEhLIQFwkJYCAuEhbAQFggLYSGsXzkm6Wd0XWVURljLmW24kpGjEGEhLBAWwkJYICyERZ3aCe55SnIpfJdbkq086grr/rlK9pCGoxBhISwQFsJCWCAshIWwQFgIC2GBsBAWwgJhISyEBcJCWAgLhIWwEBYIC2EhLBAWwkJYICyEhbBAWAgLYYGwEBbCAmEhLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCAthgbAQFsJCWCZAWAgLYYGwEBbCgnG1JvhaU8GOryS9sOpySPIs/Bm7JGdHIb6xQFgIC2GBsBAWwgJh8Qf+vA/bm8AbC2EhLBAWwkJYICyEhbBAWAgLYYGwEBbCAmEhLIQFwkJYCAuEhbAQFggLYSEsEBZTeQOr+D7e3PEOywAAAABJRU5ErkJggg==",
+  "4": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAYAAAA8AXHiAAAEtklEQVR42u2cyU5UURBACyUhzAItYBhEwtD03/gV/oCJG7/JD3Hn5vVzAlQQEYc4sTCauKBJXKB51d33vaq65yQsILW49fp0Vd176R5pLbcFYNhc4xEAYgFiAWIBIBYgFiAWAGIBYgFiASAWIBYgFgBiAWIBYgEgFiAWIBYAYgFiAWIBDMhokDxmRWQ9SC7nIvISsWxwX0QeBsnld4TXJUor7ATqItdFZAyxECsFu4hlg2jfE7CHWM0zHnBT1UEsqhViBRWrg1iIxTySSRWmYtl9XVwfOYxmJtZBw2u9o6xaTxCrOTRnPpsNr/WRiNxVvGHciuW9FU4oYp8ZWG+Ry+zoXSzNw+8aWK9mDR3E8iFWYWC9BWLFE6s0sN6ntMJ4O0ILrfBcGT+OWIiVomrtIlYz7ChivxtZcxYDvGexJhWxzw2tO4sjB89ieTtqoGIFnK9KQ+suESuOWIWhdWsqVhux6qed6MVMzQ9l/ARi2a1YXWNr19xb7iJWvWwrYr8ZW3v4Ad6rWFOK2H2D69cM8HuIVR/eLp8HWRMVi/mKVpiTWIVzsRjea8TrUcMl2nvLScSiFVblRaI3EmINwJYi9qvRHEJfRnsUa1oRe2A4j9B3hh7F8n7UQMVivjKzM6RiIVaSte0gli2xLLdC7f3lJGLZmbG6xnPZT5Q3YvWB5vsXvhjPJeydoTexZhSxhw7y6SIWbbBpsdqIxeBOKwwsVrSKtY1YVKyqaO8xpxCr+RmrdJLTQaL8EUuB5js8PzvJKeTO0JNYs4rYV47yKhCLwZ2KFVCsKP8uM8ha24hFxUqx1i3Ealas0lFe2vvMacSiFVblMNFzQKwKbChiPzkTK9wA70WsOUXsG/EHYtEGG98ZIlZDYnUditVN9CwQa4jv0uhibSIWYlVFe685g1iIVZXXkeYsL2KtK2I/OBUr1CejPYg1r4g9Er+EOnLwIFa0/xodxtoRq2axSsdilYhVL96/vS9FxdpALFphVbT3m7OIVZ9YniuWiO6es4NYg7GmiD1zLlaYIwfrYi0oYo/FP2GOHKyLlcuOMNzOMJJYRQCxCsSqh1yOGvoR6zZiUbGq8lEZP4dY6cWKULFEdPede4jVH6uK2PdBxAoxwFsWq6WIPZE4hDjLsixWjm1QmwsVi8E9SS6I1QfRP5kzjFzWEYtWWBXtfec8YqWrWJFaoYju3rODWDpWFLGnwcQqESsNNxWx7yQe7r+MzapYuc5X/eRExUIsxPIkVhFQLE1Oa4iVZkcYsWJp7z0XEIuKVZWTRM8ra7FuZb4rdD9nWRRrKWHLQKyMxcr5xL3f3NqINdx3XzewWFQsBvfGK9YqYg23FZaBxdLef7YQi1aYQq4OYv2fZUXscXCxCsSqX6oziU8Xseqfr4oMxHL7iR1rYjFf9Z8jYg1JrDIDsTQ5riDWcMTKoRW+VcYvWln4qLEH+VhExuTivnBRRKYyb4UiF/eh/xLmV28Tc9r7GUesq3lwxd9G5OLw71K2pd7vR5mIdU9EbvTE+Vuin5YXPdJabgtA9BkLEAsAsQCxALEAEAsQCxALALEAsQCxABALEAsQCwCxALEAsQAQCxALEAsAsQCxALEARETkDwFwy/4yzwIWAAAAAElFTkSuQmCC",
+  "5": "data:image/png;base64,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",
+  "6": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAYAAAA8AXHiAAABkUlEQVR42u3cLwrCYBzH4e9kxT7ECwgGb2M2eQiDQfAsRo/gCQwWq8Wm2WA1KFiHDvyz54G1Fzbe3wfewWBF1R8GmtaxBQgLYSEsEBbCQlggLISFsEBYCAthgbAQFsICYSEshAXCQlgIC4SFsBAWCAthISwQFsJCWCAshIWw4AXlB+45SDKqse6QZG9EwqprmmRWY90qycSIHIUgLISFsEBYCAthgbAQFsICYSEshIWwQFgIC2GBsBAWwgJhISyEBcJCWAgLhIWwEBYIC2HRKuUXP1s3Sc+IGnFJchXW3fhx8b5FkqWjEO9YICyEhbBAWAgLYYGwEBa/6ps/6WySzI2oEUdhPZ2SbDXhKARhISyEBcJCWAgLhIWwEBYIC2EhLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCItW+cT/sdZJzjXW7YzndxVVf2gXcBQiLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCAthgbAQFsICYSEshAXCQlgIC4SFsBAWCAth8b9uWi0PmSSK5HkAAAAASUVORK5CYII=",
+  "7": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAYAAAA8AXHiAAAFXUlEQVR42u3d/YsUZQDA8e/eHkEv0A8Z+Af0YkX2XtZlVp7Zi6lZcnQZlyglFUQYYVA/REEFEUFGRaHRq0RvWFnZiylaRGFFECQlFBVFhUSIaHb2wzxH13Xe7T7PzOzs3vf7m7c7z5yzn52ZfXZGa5MmT8Es77rcBCYsE5YJy0xYJiwTlpmwTFgmLDNhmbBMWGbCMmGZsMyEZcIyYZkJy4RlwjJLrLtNf+/DgcnD/vwNsKuDXpdjhr02O4AfhFV8U4EvRvxsG3AysLMDUD0MXD/iZxcDb3ooLK4TR0EFcBSwFTi4zVE9MgoqgHXApcIqplOAz8Z4vN1xPQYsG+PxtcB8YeXbqcCnDTyvXXE9DlzbwPNeAS4XVj6dDnzSxPPbDdcTwNImnv8i0CestKYBH0cs1y64VgFLIpZbA1wlrLjOAj5KWL7quFYDixOWfwYYEFZzTQe25DBOVXE9BVyTwzhPRu7xJiSsc4BNOY5XNVxPA1fnfI52nbDG7lxgYwHjVgXXs8CiAsZ9FLhBWKN3PrChwPFbjes5oL/A8VcCNwnrv80C3ithPa3CtQa4soT1PAgsF1bWbGB9iesrE1cNeIFy553uB1ZMdFgXAW9FLruB+C9my8A1hGph4jlZTPcAt09UWJeQfbkai2oWMCcBZpG4amQz5FckjDEznOjfFrn8XcCdrXpx6wcdMqkV650LvJaI6m9gH/A8cAZwRMRYh4UXfzXwV46oXgIWJIzRw79TLpuB3UBvxDgzgAOA9ycCrPnAqzmgGqpKuGrAy8BlCWOcxv+/xkrBNT3sld/pZFgLwobPC1WVcNXCG2ZewvaZCny+n8dScPUAhwJvd+I51sJwiIjpgzFQDTUYzttacc7VRXa91NzIdQ8CU4Avx3nevQnnXDcDD3UarL7wCakoVK3ENYRqTuQ6dwNHAl83+PwUXDeSXaXaEbD6ySYIU1DtbfLdXxauLuD1sL6Y/gyH7u1NLpeCaxnZ94ttDWtRwlxMDKoycXUBb5DNxcX0W9hTxd6Bk4JrCdmVEW0Ja4Dsm/yyUZWBq042OXth5Ng/hnOqXxK3cQqugYQ3fctgLU54R2zMAVWRuOphvAsix9wOHAf8ntO2TsHVH859a+0AaynZJbexqHpzQlUErnr4yN4bOdZXwAnAHzlv8xRcQ5/Wc8VVy/k/wjwwnJDWK4JqtHOi2MPXtnAIOy9y+a3A2RR7x/YKsu8JY+oBPqzqHmsXcDTNTzIWjSqvPVcsqi3AmRT/zwDE7rn68kRV1KHw2/ARemeFUOWFK6Z3ya6M3VPS+prFNY/4OcbST96/D+/wHeM8b1OJqFqBay3Z9WZl/v2awTU7/I5tNd3wUzgs/jwGqpkt2Ohl4VpD9oX7IK1pPFwzKPACy6InSH8FjgW+qxCqMnCtIrsUeR+tbX+4ppHvnVClwyIcDo8Pn6qqgqpIXCup1r1+I3GdRNzd5U1V1mUze8K7uJvsRs29FdrwqZfcDO8+KnIzw4g2k03I3sr4V1DkUt7zWO1c6jzXHcDdbsbyDoXtUsphcbmohNUIrma6BXjATSesRnA1M0Ww3k0mLBOWCctMWCYsE5aZsExYJiwzYZmwTFhmwjJhmbDMhGXCMmGZCcuEZcIyYZkJy4RlwjITlgnLhGUmLBOWCctMWCYsE5aZsExYJiwzYZmwTFhmwjJhmbDMhGXCMmGZCcuEZcIyE5YJy4RlJiwTlgnLTFgmLBOWmbBMWCYsM2GZsExYZo3W7SYYtbqbwD2WCcuEZSYsE5YJy0xYJiwTlpmwTFgmLDNhmbBMWGbCMmGZsMyEZcIyYZkJy4RlwjJrrH8AuJYSapYo6ZQAAAAASUVORK5CYII=",
+  "8": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAYAAAA8AXHiAAAB6klEQVR42u3dLU4DQQCG4a+E4AqmJE0IwULwmF6gx+gdEAg8ikvguAFXwKARqyoQJPzoOgSKpGKaJcNOeR49yU5m3+xuNt3paDI9Dfy2HUuAsBAWwgJhISyEBcJCWAgLhIWwEBYIC2EhLBAWwkJYICyEhbCgp11LsNZhkmnh2JckH5ZMWCWuklwWjr1OcmPJ3AoRFsICYSEshAXCQlgIC4SFsBAWCAthISyEZQkQFsJCWCAshIWwQFgIi/+qhQ9W9/L9ZXJN+xuMPUhyVHl+b0lWQz5powb+YXWe5ME14IdFkju3QjxjgbAQFsICYSEshAX9tPDm/TXJY+VjnicZF459T9JVnt9y6CethTfvf+E29iB1K0RYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCItt1cJPk8dJziofc5NNPk6SXFSeX5fkc8gnzaYgbVrEpiB4xgJhISyEBcJCWAgLemvhzfsyyX3lY86SHBeO7ZI8VZ7f89BPmk1B1rMpiFshwkJYICyEhbBAWAgLYYGwEBbCAmEhLIQFwkJYCAuEhbAQFggLYSEsEBbCQlggLISFsEBYCAthgbAQFtvCHqS4YiEshAXCQlgIC4SFsBAWCAthISwQFsJCWCAshIWwQFgIC2GBsBAWwoJevgBpRxywdqHB/QAAAABJRU5ErkJggg==",
+  "9": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAYAAAA8AXHiAAAFkUlEQVR42u3deYgVdQDA8a8lRpZkJZtoRWa4W6QddEBE9wFd2n2SQhcVERRUUHRQEEFBdNFFGopZtlbSYYd2iJkdVGqHWtF/BUVlUVnuan/MPFjcdp35/eb53sx8v//41jc/3rx5n52ZN2/m7ZBRo7swK7qtXAQmLBOWCctMWCYsE5aZsExYJiwzYZmwTFhmwjJhmbDMhGXCMmGZCcuEZcIyi2yoi6Bfw4HxGaddB6xxkQkrS4cBb2acdi0w0kXmptCEZcIyE5YJy4RlJiwTlgnLTFgmLBOWmbBMWCYsM2GZsExYZsIyYZmwTFhmwjJhmbDMhGXCMmGZCcuEZcIyE5YJy4RlJiwTlgnLTFgmLBOWmbBMWCYsM2GZsEIbD2xT89dqX2EVWyfwDfAhyZ98q2MXAiuAh4RVTHsBX6e3JwGfANvXDNVUYFZ6+2rgcWHFtUcfVI26gOXADjVBdQkwY5P/uwyYLqywdgdWAVv/z33jgJXAzk167A1NmjZvVwBPDnDftD5rMWFlbCzwFTBskGl2Bb4EOloMq6dJy+Aq4NEM+11zgCHC2nyjU1RZdtI70rXamILnobdJ02btWuDhjNOeC3S3I652gtWRroVG5BgzElgN7NYiWEWvsa4H7s855nRgfrutJNppZsYCOwaM2y49HLFnyddYNwH3Bo79o8n7e6WG9SlwSODYYcAaYEJJYd0C3B04dg5wgZvCwfsIODjiuawi/gj1lt4U3g7cGTj2WeB8d96z9XEELkiOUO8fMf7fHNP+E/lc7wJui0B1nocb8uM6qEWb1XU5pv0zYh7vAW4OHDu3XddU7Q4Lko9vDowYvww4PGDc3zmm/Stw3u4Dbggc+3x6mGGjsOLWPDG4FgNHtxmsB4DrAp9PN3BOu6MqA6wGrgMixi8CTmwSlrybwkeAawKfxzzg7DKgKgssgM8icS0ATmvCDnkehE8AVwbO/wvAWWVBVSZYDVwx7/ZeSn/jiywrrBnApYGP8SJwZplQlQ0WwOeRuJ4DLipwfn7LMM0sknOqQn8ZzigbqjLCauDaL2L8zPTFGqysx7J+2cz9j5GchRDSfJLPATeW8DUq7cUUyyNxdQPHRK6JAH4d5L5bgcsD5+9lYEpZUZUZVgPXpIjxCxn4s8WssAZaY00F7ohANbnMqMoOC5KPbyZGjF8MbFswrIn0P504a6+kqDaU/HWpxHWFKyNwdQCzC9wUjgCWBM7LqySHRDZU4DWpzAWrKwk/q2EK/T93W5tx7M+b/DyXfCcqNnoNOLUqqKoEC+CLCFyzgZ0C1lg/9bl9MfmO8PdFdUqVUFUNViyupwJgNc7dGgM8HfCYC6qIqoqwGrj2CRg3GTg+B6zf+9yeF/B4rwMnVxFVVWFBcqXP3gHjZpJc8ZIF1o/pv9OAQ3M+zhvASVVFVWVYkFxFnRfXLiSXsWeB9UO6XzZdVPWC1cDVlXPMg2S7rnFtAKq3UlS9FV/uDBk1uosa1En/74HY0i1M3zX21mGB1+WL11aluFrVojqhqhMsSK6YbgWut4ET6oSqbrBagesdkkMYvTVbzrX8DtLVFHPFtKiE1a/G5fjNesv/boqqp6bLt9bfmrwm3SwWjes94Lg6o6o7LEi+paazwM3VYuDYuqMSVrG4lpCc7tzjIhVWo29TXD0RqI4SlbCKxPU+yWX8ohLWgH2X4lqfcfql6ZpqvYtOWFlwTciAZSlwpKiElafvU1wDXbj6gaiEVTSuZcARohq8oSWZz/EkH+a2Q+PSHf0t3TPAjcIqtuEU+13uMXW06HE7KVFuCk1YJiwTlpmwTFgmLDNhWRkqywHSFbTpn6g111gmLBOWmbBMWCYsM2GZsExYZsIyYZmwzIRlwjJhmQnLhGXCMhOWCcuEZSYsE5YJy+ref7hG9oevrEVnAAAAAElFTkSuQmCC"
+ },
+ "progress": (i, n) => `${i} / ${n}`
+};
+
+const TEST_ID = "motor";
+const PER_ROW = 10;
+const LIMIT_MS = 120000;                 // 본 검사 총 제한 시간 2분
+const TEST = CFG.matrix.flat();                    // 본 문항 150개 (10개씩 15줄)
+const G = CFG.glyphs;
+const sym = (d) => `<img src="${G[d]}" alt="" draggable="false">`;
+
+// 보기 칸(기호-숫자 9쌍)
+function legendHTML(hl = []) {
+  const h = (k) => (hl.includes(k) ? "highlight" : "");
+  const pairs = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) =>
+    `<div class="mo-pair ${h("pair" + d)}"><div class="sym">${sym(d)}</div><div class="dg">${d}</div></div>`).join("");
+  return `<div class="mo-legend-wrap ${h("legend")}"><div class="mo-legend-label">${CFG.legendLabel}</div>
+    <div class="mo-legend ${h("legendbox")}">${pairs}</div></div>`;
+}
+// 문제 칸 한 줄: digits = 이 줄의 정답 숫자(기호로 표시), answers = 입력된 숫자, active = 현재 칸
+function rowHTML(digits, answers, active, hl = [], rowKey = "") {
+  if (!digits) return `<div class="mo-row empty"><div class="mo-q"><div class="sym"></div><div class="ans"></div></div></div>`;
+  const h = (k) => (hl.includes(k) ? "highlight" : "");
+  const cells = digits.map((d, i) =>
+    `<div class="mo-q ${active === i ? "active" : ""} ${h(rowKey + "c" + i)}">
+       <div class="sym ${h(rowKey + "s" + i)}">${sym(d)}</div><div class="ans ${h(rowKey + "a" + i)}">${answers && answers[i] ? answers[i] : ""}</div></div>`).join("");
+  return `<div class="mo-row ${hl.includes(rowKey + "all") ? "mo-qrow-hl" : ""} ${hl.includes(rowKey + "sym") ? "" : ""}">${cells}</div>`;
+}
+function keypadHTML(hl = [], pressed = 0) {
+  const keys = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) =>
+    `<button class="mo-key ${hl.includes("key" + d) ? "highlight" : ""} ${pressed === d ? "btn-pressed" : ""}" data-key="${d}">${d}</button>`).join("");
+  return `<div class="mo-keypad ${hl.includes("keypad") ? "highlight" : ""}">${keys}</div>`;
+}
+function screenHTML({ rows, answers = [[], []], active = -1, hl = [], pressed = 0 }) {
+  return `${legendHTML(hl)}<div class="mo-hr"></div>
+    <div class="mo-rows">${rowHTML(rows[0], answers[0], active, hl, "r0")}${rowHTML(rows[1], answers[1], -1, hl, "r1")}</div>
+    ${keypadHTML(hl, pressed)}`;
+}
+const EXR = [CFG.matrix[0], CFG.matrix[1]];
+function mock(over = {}) {
+  return `<div class="mo-screen mockup-inert">${screenHTML(Object.assign({ rows: EXR }, over))}</div>`;
+}
+function pressAnim() {
+  return (root) => loopStates(root, ".mo-screen", [0, 1], (el, s) => {
+    el.innerHTML = screenHTML({ rows: EXR, active: 0, hl: ["pair1", "r0c0", "key1"], answers: [s ? [1] : [], []], pressed: s ? 1 : 0 });
+  }, 1300);
+}
+
+// ── 문항 블록 플러그인: 한 블록(예시 20개 / 본 150개)을 한 번에 진행합니다 ──
+// 한 줄(10개)이 모두 채워지면 둘째 줄이 위로 올라오고 그 아래에 다음 줄이 나타납니다(노래방 가사 방식).
+class MotorBlockPlugin {
+  static info = {
+    name: "motor-block", version: "1.0.0",
+    parameters: {
+      digits: { type: ParameterType.COMPLEX, default: undefined },
+      phase: { type: ParameterType.STRING, default: "test" },
+      limit_ms: { type: ParameterType.INT, default: 0 },
+    },
+    data: { results: { type: ParameterType.COMPLEX }, completion_time: { type: ParameterType.INT }, finished_all: { type: ParameterType.BOOL } },
+  };
+  constructor(jsPsych) { this.jsPsych = jsPsych; }
+  trial(display_element, trial) {
+    const digits = trial.digits, total = digits.length;
+    const results = [];
+    let i = 0, finished = false, timeoutId = null;
+    const answersByRow = {};
+    display_element.innerHTML = `
+      <div class="math-wrap"><div class="content-col">
+        <div class="math-header"><div class="math-tag">${CFG.tag}</div></div>
+        <div id="mo-root"></div>
+      </div></div>`;
+    const root = display_element.querySelector("#mo-root");
+    const rowOf = (k) => Math.floor(k / PER_ROW);
+    const rowDigits = (r) => (r * PER_ROW < total ? digits.slice(r * PER_ROW, (r + 1) * PER_ROW) : null);
+    const paint = (flashKey = 0) => {
+      const r = rowOf(i);
+      const ans = (rr) => (answersByRow[rr] || []);
+      root.innerHTML = screenHTML({
+        rows: [rowDigits(r), rowDigits(r + 1)], answers: [ans(r), ans(r + 1)], active: i % PER_ROW,
+      });
+      if (flashKey) { const b = root.querySelector(`[data-key="${flashKey}"]`); if (b) { b.classList.add("flash"); setTimeout(() => b.classList.remove("flash"), 300); } }
+    };
+    const clickKey = (d) => press(d);
+    root.addEventListener("click", (e) => { const b = e.target.closest("[data-key]"); if (b) clickKey(Number(b.dataset.key)); });
+    const onKey = (e) => { const d = /^[1-9]$/.test(e.key) ? Number(e.key) : 0; if (d) press(d); };
+    document.addEventListener("keydown", onKey);
+
+    const t0 = performance.now();
+    let onset = t0;
+    const press = (d) => {
+      if (finished) return;
+      const now = performance.now();
+      const ans = digits[i];
+      results.push({ idx: i + 1, row: rowOf(i) + 1, col: (i % PER_ROW) + 1, answer: ans, response: d,
+        correct: d === ans, rt: Math.round(now - onset), elapsed: Math.round(now - t0) });
+      (answersByRow[rowOf(i)] = answersByRow[rowOf(i)] || [])[i % PER_ROW] = d;
+      i++; onset = now;
+      if (i >= total) return end(false);
+      paint();
+    };
+    paint();
+    if (trial.limit_ms > 0) timeoutId = setTimeout(() => end(true), trial.limit_ms);
+
+    const end = (timedOut) => {
+      if (finished) return;
+      finished = true; clearTimeout(timeoutId); document.removeEventListener("keydown", onKey);
+      const last = results.length ? results[results.length - 1].elapsed : 0;
+      // 검사 완료 시간: 모든 문항을 푼 경우 첫 자극부터 마지막 반응까지, 못 푼 경우 제한 시간(2분)
+      const completion = timedOut ? trial.limit_ms : last;
+      this.jsPsych.finishTrial({ results, completion_time: completion, finished_all: !timedOut });
+    };
+  }
+}
+
+const CSV_COLUMNS = [
+  "code_name", "language", "item_index", "row", "col", "correct_answer", "response", "correct", "false_alarm", "score",
+  "rt", "elapsed_time", "completion_time", "administered",
+];
+function buildFilteredCSVString() {
+  const blk = jsPsych.data.get().filter({ phase: "motor_test" }).values()[0];
+  const res = blk ? blk.results : [];
+  const comp = blk ? blk.completion_time : "";
+  const byIdx = {};
+  res.forEach((r) => { byIdx[r.idx] = r; });
+  const rows = TEST.map((d, k) => {
+    const idx = k + 1, r = byIdx[idx];
+    const base = { language: CFG.lang, item_index: idx, row: Math.floor(k / PER_ROW) + 1, col: (k % PER_ROW) + 1,
+      correct_answer: d, completion_time: comp };
+    return r ? { ...base, response: r.response, correct: r.correct, false_alarm: !r.correct, score: r.correct ? 1 : 0,
+        rt: r.rt, elapsed_time: r.elapsed, administered: true }
+             : { ...base, administered: false };
+  });
+  rows.forEach((r) => { r.code_name = subjectId; });
+  return toCSV(CSV_COLUMNS, rows);
+}
+
+const jsPsych = makeJsPsych(TEST_ID);
+const timeline = [heroTrial("images/title-slide.png")];
+
+// ── 지시문 화면들 (슬라이드 순서 그대로) ──
+const S = CFG.instr;
+const screens = [
+  { html: S[0], mock: mock({ hl: ["legendbox"] }) },
+  { html: S[1], mock: mock({ hl: [] }), hlFn: "syms" },
+  { html: S[1], mock: mock({ hl: [] }), hlFn: "digits" },
+  { html: S[1], mock: mock({ hl: ["pair1"] }) },
+  { html: S[2], mock: mock({ hl: ["r0all", "r1all"] }) },
+  { html: S[3], mock: mock({ hl: ["r0sym"] }), hlFn: "qsyms" },
+  { html: S[3], mock: mock({ hl: [] }), hlFn: "qans" },
+  { html: S[4], mock: mock({ hl: ["r0c0"], active: -1 }) },
+  { html: S[5], mock: mock({ hl: ["pair1", "r0c0"] }) },
+  { html: S[6], mock: mock({ hl: ["pair1", "r0c0", "key1"], active: 0 }), anim: pressAnim() },
+];
+// 줄 전체를 감싸는 빨간 테두리가 필요한 화면(기호 줄/숫자 줄)은 렌더 뒤에 DOM 으로 입힙니다.
+function decorate(root, kind) {
+  const outline = (els) => {
+    const a = els[0].getBoundingClientRect(), b = els[els.length - 1].getBoundingClientRect();
+    const host = root.querySelector(".mo-screen"); host.style.position = "relative";
+    const hr = host.getBoundingClientRect();
+    const sc = hr.width / host.offsetWidth || 1;
+    const d = document.createElement("div");
+    // box-sizing:border-box를 명시해야 border 두께만큼 박스가 더 커지지 않고, 여유 공간도
+    // 더 넓히고(10px) 펄스 애니메이션 클래스를 줘서 눈에 더 잘 띄게 합니다.
+    d.className = "mo-decor-hl";
+    d.style.cssText = `position:absolute;box-sizing:border-box;border:4px solid #e53935;border-radius:8px;pointer-events:none;
+      left:${(a.left - hr.left) / sc - 10}px;top:${(a.top - hr.top) / sc - 10}px;
+      width:${(b.right - a.left) / sc + 20}px;height:${(b.bottom - a.top) / sc + 20}px;`;
+    host.appendChild(d);
+  };
+  const q = (s) => Array.from(root.querySelectorAll(s));
+  if (kind === "syms") outline(q(".mo-pair .sym"));
+  if (kind === "digits") outline(q(".mo-pair .dg"));
+  if (kind === "qsyms") outline(q(".mo-rows .mo-row:first-child .mo-q .sym"));
+  if (kind === "qans") outline(q(".mo-rows .mo-row:first-child .mo-q .ans"));
+}
+const instructionBlock = screens.map((s) => ({
+  type: InfoScreenPlugin, tag: CFG.tag,
+  body_html: `<div class="info-box">${s.html}</div>`, mockup_html: s.mock,
+  buttons: ["→"], use_arrow_nav: true,
+  after_render: (root) => {
+    if (s.hlFn) decorate(root, s.hlFn);
+    return s.anim ? s.anim(root) : null;
+  },
+}));
+instructionBlock.push({
+  type: InfoScreenPlugin, tag: CFG.tag,
+  body_html: `<div class="info-box">${S[8]}</div>`,
+  mockup_html: `<div class="mini-wrap"><div class="mini-inner">${mock({})}</div></div>`,
+  buttons: [CFG.replayBtn, CFG.beginBtn],
+});
+timeline.push({
+  timeline: instructionBlock,
+  loop_function: (data) => { const v = data.values(); return v[v.length - 1].response === CFG.replayBtn; },
+});
+
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: () => transitionScreen([
+    "Khi hết <b>thời gian quy định</b>",
+    "cho mỗi câu hỏi, hệ thống sẽ",
+    "tự động chuyển sang câu tiếp theo.",
+  ]),
+  choices: "NO_KEYS",
+  trial_duration: 3000,
+});
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: () => transitionScreen([
+    "Hãy trả lời",
+    "<b>nhanh và chính xác</b>",
+    "nhất có thể.",
+  ]),
+  choices: "NO_KEYS",
+  trial_duration: 3000,
+});
+
+// ── 본 검사 150개(총 2분) ──
+timeline.push({ type: MotorBlockPlugin, digits: TEST, phase: "test", limit_ms: LIMIT_MS, data: { phase: "motor_test" } });
+timeline.push(endScreen());
+jsPsych.run(timeline);
+
+</script>
+</html>

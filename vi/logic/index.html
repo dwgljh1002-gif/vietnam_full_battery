@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Suy luận logic - Demo</title>
+<script src="https://unpkg.com/jspsych@8.3.0"></script>
+<script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2.2.0"></script>
+<script src="https://unpkg.com/@jspsych/extension-pipe@0.2.0"></script>
+<script src="../../assets/flow.js"></script>
+<link href="https://unpkg.com/jspsych@8.3.0/css/jspsych.css" rel="stylesheet" type="text/css" />
+<style>
+
+  html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+  body { font-family: 'Noto Sans KR', 'Segoe UI', sans-serif; background: #f4f6fb;
+    display: flex; align-items: center; justify-content: center; }
+  #jspsych-content-wrapper, .jspsych-display-element, #jspsych-content {
+    height: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important;
+    overflow: hidden !important; display: flex !important; align-items: center !important;
+    justify-content: center !important;
+  }
+  /* 고정 크기 프레임(1100×950)을 항상 같은 크기로 그린 뒤, 창 크기에 맞춰 통째로 한 번만 scale합니다. */
+  .math-wrap { width: 1340px; height: 950px; box-sizing: border-box; margin: 0;
+    padding: 50px 80px; display: flex; flex-direction: column; justify-content: center;
+    overflow: hidden; transform-origin: center center; flex-shrink: 0; }
+  .content-col { width: 1120px; margin: 0 auto; position: relative; }
+
+  .math-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; min-height: 52px; }
+  .math-tag { font-weight: 700; font-size: 31px; color: #1c3f94; border-left: 6px solid #2554c7;
+    padding-left: 16px; }
+  .header-right { display: flex; align-items: center; gap: 14px; }
+  .math-progress { background: #2554c7; color: #fff; font-weight: 600; font-size: 20px;
+    padding: 12px 26px; border-radius: 26px; }
+  .timer-badge { visibility: hidden; background: #fdecea; color: #c62828; border: 2px solid #f3c6c2;
+    font-weight: 700; font-size: 20px; padding: 8px 20px; border-radius: 24px; min-width: 64px; text-align: center; }
+  .timer-badge.on { visibility: visible; animation: timer-pulse 1s ease-in-out infinite; }
+  @keyframes timer-pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+
+  .info-box { background: #fafbfe; border: 1px solid #e1e6f2; border-radius: 16px;
+    padding: 16px 28px; font-size: 27px; line-height: 1.6; color: #2b2b2b; margin-bottom: 14px; min-height: 40px; text-wrap: balance; word-break: keep-all; }
+  .info-box b { font-weight: 800; }
+  .highlight { outline: 4px solid #e53935; outline-offset: 3px; }
+  .mockup-inert { pointer-events: none; user-select: none; }
+  .btn-row { text-align: center; margin-top: 20px; }
+  .next-btn { display: block; width: 100%; font-size: 31px; font-weight: 700; padding: 18px 0;
+    border-radius: 14px; border: none; background: #2554c7; color: white; cursor: pointer; }
+  .next-btn:hover { background: #1c3f94; }
+  .btn-row .next-btn { display: inline-block; width: auto; min-width: 260px; margin: 0 10px; padding: 16px 36px; white-space: nowrap; border-radius: 40px; }
+  .btn-row .secondary-btn { background: #fff; color: #2554c7; border: 2px solid #2554c7; }
+  .btn-row .secondary-btn:hover { background: #eaf0fd; }
+  button:disabled { cursor: default !important; }
+  .nav-arrow-btn { flex: 0 0 auto; width: 84px; height: 84px; border-radius: 50%; border: none;
+    background: #2554c7; color: #fff; font-size: 32px; line-height: 1; cursor: pointer;
+    box-shadow: 0 10px 24px rgba(37,84,199,0.35); display: flex; align-items: center; justify-content: center; }
+  .nav-arrow-btn:hover { background: #1c3f94; }
+  .btn-pressed { transform: scale(0.95); filter: brightness(0.9); transition: transform .12s ease, filter .12s ease; }
+  .mini-wrap { border: 2px solid #2554c7; border-radius: 20px; padding: 14px; background: #fff; }
+  .mini-inner { border: 1px solid #e1e6f2; border-radius: 16px; padding: 8px 20px 12px; zoom: 0.62; }
+  .pill { font-family: inherit; padding: 12px 34px; border-radius: 40px; font-weight: 700; font-size: 22px;
+    border: 2px solid #cfd6e6; background: #fff; color: #44506b; cursor: pointer; min-width: 200px; white-space: nowrap; }
+  .pill.primary { background: #2554c7; color: #fff; border-color: #2554c7; }
+  .pill:hover:not(:disabled) { filter: brightness(0.96); }
+  .pill:disabled { background: #b9c7ea; border-color: #b9c7ea; color: #fff; }
+
+  /* 타이틀 화면 */
+  .title-full { position: fixed; inset: 0; width: 100vw; height: 100vh; background: #f4f6fb; overflow: hidden; }
+
+  /* ── "검사하기/시작하기"를 누른 직후 바로 첫 문제로 넘어가지 않고 3초씩 보여주는
+     전환(로딩) 화면 — 수리계산과 동일한 디자인(흰 원 + 구름 모양 장식 + 우측 하단
+     느낌표 배지)입니다. .math-wrap 클래스를 그대로 써서 기존 scale 시스템에
+     자동으로 맞춰집니다. ── */
+  .transition-stage { position: relative; width: 760px; height: 760px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: center; }
+  .transition-cloud { position: absolute; background: #aebfe6; z-index: 0; }
+  .transition-cloud.c1 { width: 230px; height: 200px; top: 30px; right: 60px;
+    border-radius: 55% 45% 50% 50% / 60% 55% 45% 40%; }
+  .transition-cloud.c2 { width: 120px; height: 120px; top: 190px; right: 0; border-radius: 50%; }
+  .transition-cloud.c3 { width: 230px; height: 230px; left: 0; top: 330px; border-radius: 50%; }
+  .transition-circle { position: relative; z-index: 1; width: 600px; height: 600px; border-radius: 50%;
+    background: #fff; border: 10px solid #dde6f6; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 1px #eef2fb inset; }
+  .transition-text { max-width: 440px; text-align: center; font-size: 30px; line-height: 1.6; color: #3a4a66; }
+  .transition-text b { color: #26324a; }
+  .transition-badge { position: absolute; z-index: 2; right: 4px; bottom: 4px; width: 130px; height: 130px;
+    border-radius: 50%; background: #4a74c4; box-shadow: 0 0 0 10px #eef3fc;
+    display: flex; align-items: center; justify-content: center; }
+  .transition-badge svg { width: 56px; height: 56px; }
+  .slide-wrap { position: absolute; inset: 0; }
+  .slide-img { position: absolute; display: block; border-radius: 14px; box-shadow: 0 6px 24px rgba(30,50,100,.15); }
+  .slide-hitbox { position: absolute; background: transparent; border: none; padding: 0; cursor: pointer; }
+
+  /* ── 지각조직 ── */
+  .po-main { display: flex; align-items: center; justify-content: space-between; margin: 6px 0 16px; }
+  .po-panel { width: 430px; height: 316px; box-sizing: border-box; border: 2px solid #e1e6f2; border-radius: 18px;
+    background: #f8f9fc; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .po-panel.right { background: #eef7fe; border-color: #3cc0f5; }
+  .po-arrow { color: #2554c7; font-weight: 800; font-size: 30px; }
+  .po-stim { width: 210px; height: 210px; flex: 0 0 auto; }
+  .po-stim.rot { transform: rotate(45deg); }
+  .po-grid { display: grid; width: 250px; height: 250px; background: #f1f2f6; border: 1px solid #d5dae6; box-sizing: border-box; }
+  .po-cell { border: 1px solid #d5dae6; box-sizing: border-box; position: relative; cursor: pointer; touch-action: manipulation; }
+  .po-cell svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .po-cell.sel { background: #fbd9d9; outline: 4px solid #e53935; outline-offset: -4px; z-index: 2; }
+  .po-cell.filled.sel { background: transparent; }
+  .po-tray { display: flex; justify-content: space-around; align-items: center; background: #f8f9fc;
+    border: 1px solid #e1e6f2; border-radius: 18px; padding: 16px 26px; margin-bottom: 16px; }
+  .po-blk { width: 92px; height: 92px; box-sizing: border-box; background: #fff; border: 2px solid #d3d9e8;
+    border-radius: 8px; padding: 0; cursor: pointer; position: relative; touch-action: manipulation; }
+  .po-blk svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .po-blk.sel { outline: 5px solid #e53935; outline-offset: 2px; }
+  .po-btns { display: flex; justify-content: center; gap: 26px; }
+
+  /* ── 지각운동 ── */
+  .mo-legend-wrap { position: relative; width: 560px; margin: 22px auto 0; }
+  .mo-legend-label { position: absolute; top: -17px; left: 50%; transform: translateX(-50%); background: #dde7f7;
+    color: #2b4a8b; font-weight: 700; font-size: 18px; padding: 3px 28px; border-radius: 8px; }
+  .mo-legend { display: flex; justify-content: center; gap: 6px; border: 3px solid #c3d6ee; border-radius: 14px;
+    padding: 22px 14px 14px; background: #fff; }
+  .mo-pair { width: 52px; border: 1.5px solid #cfd8ea; border-radius: 7px; overflow: hidden; text-align: center; background: #fff; }
+  .mo-pair .sym { height: 46px; background: #eef4fe; display: flex; align-items: center; justify-content: center; }
+  .mo-pair .sym img, .mo-q .sym img { display: block; height: 30px; width: 30px; }
+  .mo-pair .dg { height: 36px; line-height: 36px; font-weight: 800; color: #2563eb; font-size: 22px; background: #f7f8fb; }
+  .mo-hr { height: 1px; background: #d9dde8; margin: 24px auto 20px; width: 92%; }
+  .mo-rows { display: flex; flex-direction: column; gap: 16px; align-items: center; min-height: 190px; }
+  .mo-row { display: flex; gap: 8px; }
+  .mo-row.empty { visibility: hidden; }
+  .mo-q { width: 70px; border: 1.5px solid #d3d9e6; border-radius: 8px; overflow: hidden; text-align: center; background: #fff; box-sizing: border-box; }
+  .mo-q .sym { height: 62px; display: flex; align-items: center; justify-content: center; }
+  .mo-q .sym img { height: 36px; width: 36px; }
+  .mo-q .ans { height: 54px; line-height: 54px; font-size: 28px; font-weight: 800; color: #2554c7; border-top: 1.5px solid #e1e6f2; background: #fafbfe; }
+  .mo-q.active { outline: 4px solid #e53935; outline-offset: 1px; }
+  .mo-qrow-hl { outline: 4px solid #e53935; outline-offset: 4px; border-radius: 10px; }
+  .mo-keypad { display: flex; justify-content: center; gap: 9px; border: 1.5px solid #dde2ee; border-radius: 12px;
+    background: #f6f7fa; padding: 14px 18px; width: fit-content; margin: 26px auto 0; }
+  .mo-key { width: 70px; height: 64px; font-size: 30px; font-weight: 600; font-family: inherit; border: 2px solid #cfd6e6;
+    border-radius: 10px; background: #fff; color: #444; cursor: pointer; touch-action: manipulation; }
+  .mo-key:active { background: #dce8fb; }
+  .mo-key.flash { background: #fdecea; border-color: #e53935; }
+
+  /* ── 논리추론 ── */
+  .lg-stage { position: relative; }
+  .lg-label { position: absolute; left: 0; top: 50%; transform: translateY(-50%); font-weight: 800; font-size: 26px; color: #1f2430; }
+  .lg-stimbox { position: relative; height: 410px; display: flex; align-items: center; justify-content: center; }
+  .lg-stim { position: relative; width: 660px; border: 5px solid #99a9cc; box-sizing: content-box; background: #fff; }
+  .lg-stim img { display: block; width: 100%; }
+  .lg-blank { position: absolute; box-sizing: border-box; }
+  .lg-blank.pink { background: rgba(240,150,150,.55); border: 3px solid #e53935; }
+  .lg-blank.line { border: 3px solid #e53935; }
+  .lg-opts { display: grid; grid-template-columns: repeat(3, 250px); gap: 26px 40px; justify-content: center; margin-top: 18px; }
+  .lg-opt { border: 4px solid #99a9cc; background-color: #fff; background-repeat: no-repeat; background-size: 300% 200%;
+    cursor: pointer; padding: 0; box-sizing: content-box; width: 250px; }
+  .lg-opt:hover { border-color: #5f78b8; }
+  .lg-opt.sel { border-color: #2554c7; box-shadow: 0 0 0 4px #bcd0f7; }
+  .lg-opt.hl { border-color: #e53935; border-width: 5px; }
+  .lg-opt.sel.hl { box-shadow: 0 0 0 4px #bcd0f7; }
+  .lg-opt.wrong, .lg-opt.wrong.hl { border-color: #e53935; border-width: 4px; box-shadow: 0 0 0 4px #f6bcba; }
+  .lg-res-row { display: flex; align-items: center; gap: 10px; margin: 18px 0; }
+  .lg-res-stim { flex: 0 0 236px; border: 3px solid #cfd6e6; border-radius: 28px; overflow: hidden; background: #fff; }
+  .lg-res-stim img { display: block; width: 100%; }
+  .lg-res-opt { flex: 1 1 0; border: 2px solid #dfe3ee; border-radius: 10px; background-color: #fff;
+    background-repeat: no-repeat; background-size: 300% 200%; }
+  .lg-res-opt.chosen { border-color: #2554c7; box-shadow: inset 0 0 0 100px rgba(37,84,199,.35); }
+  .lg-res-opt.chosen.wrong { border-color: #e53935; box-shadow: inset 0 0 0 100px rgba(229,57,53,.35); }
+</style>
+</head>
+<body></body>
+<script>
+
+const { ParameterType } = jsPsychModule;
+
+// ── 고정 프레임(1100×950)을 창 크기만 기준으로 한 번 계산한 scale값으로 일괄 축소 ──
+const FRAME_W = 1300, FRAME_H = 950;
+let currentScale = 1;
+function computeScale() {
+  const margin = 12;
+  currentScale = Math.min((window.innerWidth - margin * 2) / FRAME_W, (window.innerHeight - margin * 2) / FRAME_H);
+  applyScale();
+}
+function applyScale() {
+  const wrap = document.querySelector(".math-wrap");
+  if (!wrap) return;
+  wrap.style.transform = `scale(${currentScale})`;
+}
+new MutationObserver(() => applyScale()).observe(document.body, { childList: true, subtree: true });
+window.addEventListener("resize", computeScale);
+computeScale();
+
+// ── 공통 설정 ──
+const WARN_SEC = 5;            // 남은 시간 5초부터 카운트다운 표시
+const USE_STOP_RULE = true;    // 중지 규칙(5문항 연속 0점 시 중지)을 쓰지 않으려면 false
+const STOP_AFTER = 5;
+
+function randomID(len = 10) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+const subjectId = (localStorage.getItem("vit_participant_code") || "").trim() || randomID(10);
+
+function csvEscape(value) {
+  if (value === undefined || value === null) return "";
+  const s = String(value);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function toCSV(columns, rows) {
+  const lines = [columns.join(",")];
+  rows.forEach((r) => lines.push(columns.map((c) => csvEscape(r[c])).join(",")));
+  return lines.join("\n");
+}
+// DataPipe 업로드가 실패했을 때 브라우저 콘솔에서 downloadFilteredCSV() 로 수동 백업을 받을 수 있습니다.
+function downloadFilteredCSV() {
+  const blob = new Blob([buildFilteredCSVString()], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `${TEST_ID}_data_${CFG.lang}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// 타이틀 이미지를 화면에 꽉 채우되, 글씨/버튼이 있는 "안전 영역"(data-safe-x)은 잘리지 않도록 배치
+function layoutCoverHitboxes(container) {
+  const img = container.querySelector(".slide-img");
+  if (!img) return;
+  const iw = Number(img.dataset.iw) || img.naturalWidth;
+  const ih = Number(img.dataset.ih) || img.naturalHeight;
+  if (!iw || !ih) return;
+  const rect = container.getBoundingClientRect();
+  const W = rect.width, H = rect.height;
+  // 실제 검사 화면(고정 프레임)과 비슷한 크기로 가운데에 배치 (프레임의 약 85%)
+  const s0 = Math.min((W - 24) / FRAME_W, (H - 24) / FRAME_H);
+  const boxW = FRAME_W * s0 * 0.85, boxH = FRAME_H * s0 * 0.85;
+  const scale = Math.min(boxW / iw, boxH / ih);
+  const dispW = iw * scale, dispH = ih * scale;
+  const offX = (W - dispW) / 2, offY = (H - dispH) / 2;
+  img.style.left = offX + "px"; img.style.top = offY + "px";
+  img.style.width = dispW + "px"; img.style.height = dispH + "px";
+  container.querySelectorAll(".slide-hitbox").forEach((btn) => {
+    btn.style.left = offX + Number(btn.dataset.px) * scale + "px";
+    btn.style.top = offY + Number(btn.dataset.py) * scale + "px";
+    btn.style.width = Number(btn.dataset.pw) * scale + "px";
+    btn.style.height = Number(btn.dataset.ph) * scale + "px";
+  });
+}
+
+// ── "검사하기/시작하기"를 누른 직후 3초씩 보여주는 전환(로딩) 화면 ──
+function transitionScreen(lines) {
+  return `
+    <div class="math-wrap transition-wrap">
+      <div class="transition-stage">
+        <div class="transition-cloud c1"></div>
+        <div class="transition-cloud c2"></div>
+        <div class="transition-cloud c3"></div>
+        <div class="transition-circle">
+          <div class="transition-text">${lines.join("<br>")}</div>
+        </div>
+        <div class="transition-badge">
+          <svg viewBox="0 0 24 24">
+            <polygon points="12,3 22,20 2,20" fill="#fff"/>
+            <rect x="11" y="9" width="2" height="6" fill="#4a74c4"/>
+            <circle cx="12" cy="17" r="1.2" fill="#4a74c4"/>
+          </svg>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── 지시문/안내 화면용 범용 플러그인 ──
+// after_render(display_element) 가 함수를 돌려주면 화면을 떠날 때 그 함수를 호출합니다(예시 화면 연출 정리용).
+class InfoScreenPlugin {
+  static info = {
+    name: "info-screen",
+    version: "2.0.0",
+    parameters: {
+      tag: { type: ParameterType.STRING, default: "" },
+      header_right: { type: ParameterType.HTML_STRING, default: "" },
+      body_html: { type: ParameterType.HTML_STRING, default: "" },
+      mockup_html: { type: ParameterType.HTML_STRING, default: "" },
+      buttons: { type: ParameterType.STRING, array: true, default: ["→"] },
+      use_arrow_nav: { type: ParameterType.BOOL, default: false },
+      hero: { type: ParameterType.BOOL, default: false },
+      after_render: { type: ParameterType.FUNCTION, default: null },
+    },
+    data: { response: { type: ParameterType.STRING } },
+  };
+  constructor(jsPsych) { this.jsPsych = jsPsych; }
+  trial(display_element, trial) {
+    let cleanup = null;
+    const done = (label) => { if (cleanup) cleanup(); this.jsPsych.finishTrial({ response: label }); };
+    if (trial.hero) {
+      display_element.innerHTML = `<div class="title-full">${trial.body_html}</div>`;
+      const container = display_element.querySelector(".title-full");
+      const img = container.querySelector(".slide-img");
+      const relayout = () => layoutCoverHitboxes(container);
+      if (img) { if (img.complete && img.naturalWidth) relayout(); else img.addEventListener("load", relayout); }
+      window.addEventListener("resize", relayout);
+      display_element.querySelectorAll("[data-i]").forEach((btn) => {
+        btn.addEventListener("click", () => { window.removeEventListener("resize", relayout); done(trial.buttons[btn.dataset.i]); });
+      });
+      return;
+    }
+    const multi = trial.buttons.length > 1;
+    const btnsHtml = trial.buttons.map((label, i) =>
+      `<button class="next-btn ${multi && i === 0 ? "secondary-btn" : ""}" data-i="${i}">${label}</button>`).join("");
+    const bodyAndNav = trial.use_arrow_nav && !multi
+      ? `<div style="position:relative;">${trial.mockup_html || ""}
+           <button class="nav-arrow-btn" data-i="0" aria-label="${trial.buttons[0]}"
+             style="position:absolute; top:50%; right:-97px; transform:translateY(-50%);">→</button></div>`
+      : `${trial.mockup_html || ""}<div class="btn-row">${btnsHtml}</div>`;
+    display_element.innerHTML = `
+      <div class="math-wrap"><div class="content-col">
+        ${trial.tag ? `<div class="math-header"><div class="math-tag">${trial.tag}</div><div class="header-right">${trial.header_right || ""}</div></div>` : ""}
+        ${trial.body_html}${bodyAndNav}
+      </div></div>`;
+    if (trial.after_render) cleanup = trial.after_render(display_element);
+    display_element.querySelectorAll("[data-i]").forEach((btn) => {
+      btn.addEventListener("click", () => done(trial.buttons[btn.dataset.i]));
+    });
+  }
+}
+
+function heroTrial(imgSrc) {
+  return {
+    type: InfoScreenPlugin, hero: true, buttons: [CFG.startBtn],
+    body_html: `
+      <div class="slide-wrap">
+        <img class="slide-img" src="${imgSrc}" alt="${CFG.tag}"
+          data-iw="${CFG.title.iw}" data-ih="${CFG.title.ih}" data-safe-x="${CFG.title.safeX}" />
+        <button class="slide-hitbox" data-i="0" aria-label="${CFG.startBtn}"
+          data-px="${CFG.title.px}" data-py="${CFG.title.py}" data-pw="${CFG.title.pw}" data-ph="${CFG.title.ph}"></button>
+      </div>`,
+  };
+}
+
+// 단계별 연출(예시 화면에서 상태가 바뀌는 애니메이션): states 를 interval 간격으로 반복 적용
+function loopStates(root, selector, states, apply, interval = 900) {
+  const el = root.querySelector(selector);
+  if (!el) return null;
+  let i = 0;
+  const step = () => { apply(el, states[i % states.length]); i++; };
+  step();
+  const id = setInterval(step, interval);
+  return () => clearInterval(id);
+}
+
+function makeJsPsych(testId) {
+  return initJsPsych({
+    extensions: [{
+      type: jsPsychExtensionPipe,
+      params: {
+        experiment_id: "kWfRmZqO824v",
+        // 다른 검사 결과와 파일이 섞이지 않도록 검사·언어를 파일명에 넣습니다.
+        filename: () => VIT.fileName(subjectId),
+        data_string: buildFilteredCSVString,
+      },
+    }],
+    on_finish: () => VIT.finish(),
+  });
+}
+
+function endScreen() {
+  return { type: jsPsychHtmlKeyboardResponse, stimulus: VIT.endStimulus(CFG.endHtml), choices: [" "], trial_duration: VIT.endDuration() };
+}
+
+// ════════════════════════════════════════════════════════════
+// ▼ 지시문·버튼 문구 수정 구역 (instr 안의 각 줄이 안내 화면 한 장입니다)
+//   <br> = 줄바꿈, <b>…</b> = 굵게. 줄 위치는 <br> 를 넣고 빼서 맞추세요.
+//   수정 후에는 따옴표(")와 쉼표(,)가 빠지지 않았는지만 확인하세요.
+// ════════════════════════════════════════════════════════════
+const CFG = {
+ "lang": "vi",
+ "tag": "Suy luận logic",
+ "htmlLang": "vi",
+ "pageTitle": "Suy luận logic - Demo",
+ "timerIcon": "⏱",
+ "startBtn": "Bắt đầu",
+ "replayBtn": "Nghe lại giải thích",
+ "beginBtn": "Bắt đầu kiểm tra",
+ "practiceBtn": "Luyện tập",
+ "exampleLabel": "Câu ví dụ",
+ "practiceWord": "Luyện tập",
+ "instr": [
+  "Hình ở phía trên màn hình còn <b>thiếu một phần</b>.",
+  "Hãy chọn <b>mảnh phù hợp nhất</b> trong sáu phương án ở phía dưới màn hình để <b>điền vào ô trống</b>.",
+  "Trước khi bắt đầu kiểm tra, chúng ta hãy làm thử một câu luyện tập. Nếu muốn nghe lại phần hướng dẫn, hãy nhấn nút “<b>Nghe lại hướng dẫn</b>”. Để bắt đầu bài kiểm tra, hãy nhấn nút “<b>Luyện tập</b>”.",
+  "Đây là kết quả câu ví dụ bạn vừa làm.",
+  "Dưới đây là kết quả bài luyện tập của bạn. Nếu muốn nghe lại phần hướng dẫn, hãy nhấn nút “<b>Nghe lại hướng dẫn</b>”. Để bắt đầu bài kiểm tra, hãy nhấn nút “<b>Bắt đầu kiểm tra</b>”.",
+  "Khi hết thời gian quy định cho mỗi câu hỏi, hệ thống sẽ tự động chuyển sang câu tiếp theo.<br>Hãy trả lời <b>nhanh và chính xác</b> nhất có thể."
+ ],
+ "endHtml": "<h1>Bài kiểm tra đã kết thúc.</h1><p>Kết quả đang được tự động lưu lại. Nhấn phím cách (Space) để kết thúc.</p>",
+ "title": {
+  "iw": 2246,
+  "ih": 1575,
+  "safeX": 1305,
+  "px": 295,
+  "py": 1163,
+  "pw": 458,
+  "ph": 113
+ },
+ "items": [
+  {
+   "id": "a1",
+   "ans": 4,
+   "sw": 1000,
+   "sh": 590,
+   "ow": 319,
+   "oh": 195,
+   "n": 1,
+   "label": "A1",
+   "limit": 30
+  },
+  {
+   "id": "b1",
+   "ans": 3,
+   "sw": 1000,
+   "sh": 588,
+   "ow": 316,
+   "oh": 194,
+   "n": 2,
+   "label": "B1",
+   "limit": 30
+  },
+  {
+   "id": "b2",
+   "ans": 5,
+   "sw": 1000,
+   "sh": 588,
+   "ow": 316,
+   "oh": 193,
+   "n": 3,
+   "label": "B2",
+   "limit": 30
+  },
+  {
+   "id": "b3",
+   "ans": 1,
+   "sw": 1000,
+   "sh": 589,
+   "ow": 317,
+   "oh": 194,
+   "n": 4,
+   "label": "B3",
+   "limit": 30
+  },
+  {
+   "id": "c1",
+   "ans": 2,
+   "sw": 1000,
+   "sh": 589,
+   "ow": 317,
+   "oh": 194,
+   "n": 5,
+   "label": "C1",
+   "limit": 30
+  },
+  {
+   "id": "b4",
+   "ans": 3,
+   "sw": 1000,
+   "sh": 591,
+   "ow": 316,
+   "oh": 194,
+   "n": 6,
+   "label": "B4",
+   "limit": 30
+  },
+  {
+   "id": "b5",
+   "ans": 6,
+   "sw": 1000,
+   "sh": 591,
+   "ow": 316,
+   "oh": 193,
+   "n": 7,
+   "label": "B5",
+   "limit": 30
+  },
+  {
+   "id": "a2",
+   "ans": 2,
+   "sw": 1000,
+   "sh": 591,
+   "ow": 315,
+   "oh": 194,
+   "n": 8,
+   "label": "A2",
+   "limit": 30
+  },
+  {
+   "id": "c4",
+   "ans": 4,
+   "sw": 1000,
+   "sh": 600,
+   "ow": 315,
+   "oh": 196,
+   "n": 9,
+   "label": "C4",
+   "limit": 30
+  },
+  {
+   "id": "d1",
+   "ans": 3,
+   "sw": 1000,
+   "sh": 595,
+   "ow": 318,
+   "oh": 197,
+   "n": 10,
+   "label": "D1",
+   "limit": 30
+  },
+  {
+   "id": "a4",
+   "ans": 1,
+   "sw": 1000,
+   "sh": 591,
+   "ow": 318,
+   "oh": 195,
+   "n": 11,
+   "label": "A4",
+   "limit": 90
+  },
+  {
+   "id": "d2",
+   "ans": 3,
+   "sw": 1000,
+   "sh": 591,
+   "ow": 318,
+   "oh": 195,
+   "n": 12,
+   "label": "D2",
+   "limit": 90
+  },
+  {
+   "id": "d3",
+   "ans": 4,
+   "sw": 1000,
+   "sh": 593,
+   "ow": 317,
+   "oh": 195,
+   "n": 13,
+   "label": "D3",
+   "limit": 90
+  },
+  {
+   "id": "c2",
+   "ans": 5,
+   "sw": 1000,
+   "sh": 593,
+   "ow": 317,
+   "oh": 195,
+   "n": 14,
+   "label": "C2",
+   "limit": 90
+  },
+  {
+   "id": "c3",
+   "ans": 6,
+   "sw": 1000,
+   "sh": 593,
+   "ow": 317,
+   "oh": 195,
+   "n": 15,
+   "label": "C3",
+   "limit": 90
+  },
+  {
+   "id": "a3",
+   "ans": 4,
+   "sw": 1000,
+   "sh": 593,
+   "ow": 317,
+   "oh": 195,
+   "n": 16,
+   "label": "A3",
+   "limit": 90
+  },
+  {
+   "id": "a5",
+   "ans": 5,
+   "sw": 1000,
+   "sh": 593,
+   "ow": 317,
+   "oh": 195,
+   "n": 17,
+   "label": "A5",
+   "limit": 90
+  },
+  {
+   "id": "d4",
+   "ans": 5,
+   "sw": 1000,
+   "sh": 601,
+   "ow": 316,
+   "oh": 197,
+   "n": 18,
+   "label": "D4",
+   "limit": 90
+  },
+  {
+   "id": "d5",
+   "ans": 3,
+   "sw": 1000,
+   "sh": 601,
+   "ow": 316,
+   "oh": 198,
+   "n": 19,
+   "label": "D5",
+   "limit": 90
+  },
+  {
+   "id": "e1",
+   "ans": 6,
+   "sw": 1000,
+   "sh": 608,
+   "ow": 313,
+   "oh": 197,
+   "n": 20,
+   "label": "E1",
+   "limit": 90
+  },
+  {
+   "id": "e3",
+   "ans": 6,
+   "sw": 1000,
+   "sh": 619,
+   "ow": 302,
+   "oh": 194,
+   "n": 21,
+   "label": "E3",
+   "limit": 120
+  },
+  {
+   "id": "e4",
+   "ans": 1,
+   "sw": 1000,
+   "sh": 601,
+   "ow": 316,
+   "oh": 198,
+   "n": 22,
+   "label": "E4",
+   "limit": 120
+  },
+  {
+   "id": "adv1",
+   "ans": 5,
+   "sw": 1000,
+   "sh": 601,
+   "ow": 316,
+   "oh": 197,
+   "n": 23,
+   "label": "Adv1",
+   "limit": 120
+  },
+  {
+   "id": "c5",
+   "ans": 4,
+   "sw": 1000,
+   "sh": 601,
+   "ow": 316,
+   "oh": 197,
+   "n": 24,
+   "label": "C5",
+   "limit": 120
+  },
+  {
+   "id": "adv3",
+   "ans": 6,
+   "sw": 1000,
+   "sh": 601,
+   "ow": 316,
+   "oh": 197,
+   "n": 25,
+   "label": "Adv3",
+   "limit": 120
+  },
+  {
+   "id": "e2",
+   "ans": 2,
+   "sw": 1000,
+   "sh": 601,
+   "ow": 316,
+   "oh": 198,
+   "n": 26,
+   "label": "E2",
+   "limit": 120
+  },
+  {
+   "id": "adv4",
+   "ans": 5,
+   "sw": 1000,
+   "sh": 601,
+   "ow": 316,
+   "oh": 197,
+   "n": 27,
+   "label": "Adv4",
+   "limit": 120
+  },
+  {
+   "id": "adv2",
+   "ans": 5,
+   "sw": 1000,
+   "sh": 601,
+   "ow": 316,
+   "oh": 197,
+   "n": 28,
+   "label": "Adv2",
+   "limit": 120
+  },
+  {
+   "id": "e5",
+   "ans": 5,
+   "sw": 1000,
+   "sh": 618,
+   "ow": 294,
+   "oh": 188,
+   "n": 29,
+   "label": "E5",
+   "limit": 120
+  },
+  {
+   "id": "adv5",
+   "ans": 6,
+   "sw": 1000,
+   "sh": 601,
+   "ow": 316,
+   "oh": 197,
+   "n": 30,
+   "label": "Adv5",
+   "limit": 120
+  }
+ ],
+ "practice": [
+  {
+   "id": "pr1",
+   "ans": 5,
+   "sw": 1000,
+   "sh": 524,
+   "ow": 308,
+   "oh": 170,
+   "n": 1
+  },
+  {
+   "id": "pr2",
+   "ans": 3,
+   "sw": 1000,
+   "sh": 524,
+   "ow": 310,
+   "oh": 171,
+   "n": 2
+  },
+  {
+   "id": "pr3",
+   "ans": 1,
+   "sw": 1000,
+   "sh": 524,
+   "ow": 310,
+   "oh": 171,
+   "n": 3
+  },
+  {
+   "id": "pr4",
+   "ans": 6,
+   "sw": 1000,
+   "sh": 524,
+   "ow": 310,
+   "oh": 170,
+   "n": 4
+  }
+ ],
+ "example": {
+  "id": "ex",
+  "ans": 2,
+  "sw": 1000,
+  "sh": 525,
+  "ow": 274,
+  "oh": 149,
+  "blank": [
+   0.1075,
+   0.4571,
+   0.3458,
+   0.4048
+  ]
+ },
+ "progress": (i, n) => `Câu hỏi ${i} / ${n}`
+};
+
+const TEST_ID = "logic";
+const ASSET = "../../assets/logic/";
+const ITEMS = CFG.items, PRACTICE = CFG.practice, EXAMPLE = CFG.example;
+const sUrl = (it) => `${ASSET}${it.id}_s.png`;
+const oUrl = (it) => `${ASSET}${it.id}_o.png`;
+const posOf = (k) => `${((k - 1) % 3) * 50}% ${Math.floor((k - 1) / 3) * 100}%`;
+
+// 자주 쓰는 이미지는 미리 받아 둡니다(문항이 뜰 때 지연이 없도록).
+const _preloaded = [];
+[EXAMPLE, ...PRACTICE, ...ITEMS].forEach((it) => [sUrl(it), oUrl(it)].forEach((u) => { const im = new Image(); im.src = u; _preloaded.push(im); }));
+const loadImg = (u) => new Promise((res) => { const im = new Image(); im.onload = im.onerror = () => res(); im.src = u; if (im.complete) res(); });
+
+function optHTML(it, k, cls = "") {
+  return `<button class="lg-opt ${cls}" data-opt="${k}" style="background-image:url(${oUrl(it)});background-position:${posOf(k)};aspect-ratio:${it.ow}/${it.oh}"></button>`;
+}
+// blank: "none" | "pink" | "line" (예시 화면에서 빈칸 강조), hlOpts: 빨간 테두리로 강조할 보기 번호들
+function stageHTML(it, { label = "", blank = "none", hlOpts = [], selected = 0 } = {}) {
+  const b = it.blank && blank !== "none"
+    ? `<div class="lg-blank ${blank}" style="left:${it.blank[0] * 100}%;top:${it.blank[1] * 100}%;width:${it.blank[2] * 100}%;height:${it.blank[3] * 100}%"></div>` : "";
+  const opts = [1, 2, 3, 4, 5, 6].map((k) => optHTML(it, k, `${hlOpts.includes(k) ? "hl" : ""} ${selected === k ? "sel" : ""}`)).join("");
+  return `<div class="lg-stage">
+      <div class="lg-stimbox"><div class="lg-label">${label}</div><div class="lg-stim"><img src="${sUrl(it)}" alt="" draggable="false">${b}</div></div>
+      <div class="lg-opts">${opts}</div>
+    </div>`;
+}
+const mock = (o) => `<div class="lg-screen mockup-inert">${stageHTML(EXAMPLE, Object.assign({ label: CFG.exampleLabel }, o))}</div>`;
+
+// 예시 화면 연출: 정답 보기를 강조하고 빈칸이 깜박이는 모습
+function blankAnim() {
+  return (root) => loopStates(root, ".lg-screen", ["none", "pink", "line"], (el, b) => {
+    el.innerHTML = stageHTML(EXAMPLE, { label: CFG.exampleLabel, blank: b, hlOpts: [EXAMPLE.ans] });
+  }, 900);
+}
+
+// ── 문항 플러그인 (연습·본 검사 공통) ──
+// 슬라이드에 "다음" 버튼이 없으므로 보기를 누르면 바로 응답으로 기록되고 다음 문제로 넘어갑니다.
+class LogicItemPlugin {
+  static info = {
+    name: "logic-item", version: "1.0.0",
+    parameters: {
+      item: { type: ParameterType.COMPLEX, default: undefined },
+      label: { type: ParameterType.STRING, default: "" },
+      practice: { type: ParameterType.BOOL, default: false },
+      limit_ms: { type: ParameterType.INT, default: 0 },
+      progress: { type: ParameterType.STRING, default: "" },
+    },
+    data: {
+      response: { type: ParameterType.STRING }, correct: { type: ParameterType.BOOL },
+      omission: { type: ParameterType.BOOL }, false_alarm: { type: ParameterType.BOOL }, score: { type: ParameterType.INT },
+      rt: { type: ParameterType.INT }, decision_time: { type: ParameterType.INT }, total_rt: { type: ParameterType.INT },
+    },
+  };
+  constructor(jsPsych) { this.jsPsych = jsPsych; }
+  trial(display_element, trial) {
+    const it = trial.item;
+    let response = null, finished = false, t0 = 0, firstT = null, timeoutId = null, tickId = null;
+    display_element.innerHTML = `
+      <div class="math-wrap" style="padding-top:34px;padding-bottom:34px"><div class="content-col">
+        <div class="math-header">
+          <div class="math-tag">${CFG.tag}</div>
+          <div class="header-right"><div class="timer-badge" id="timer-badge"></div>
+            ${trial.progress ? `<div class="math-progress">${trial.progress}</div>` : ""}</div>
+        </div>
+        <div id="lg-root" style="visibility:hidden">${stageHTML(it, { label: trial.label })}</div>
+      </div></div>`;
+    const root = display_element.querySelector("#lg-root");
+    const badge = display_element.querySelector("#timer-badge");
+
+    const end = (timedOut) => {
+      if (finished) return;
+      finished = true; clearTimeout(timeoutId); clearInterval(tickId);
+      const answered = response !== null;
+      const rt = answered ? Math.round(firstT - t0) : null;
+      const correct = answered && response === it.ans;
+      this.jsPsych.finishTrial({
+        response: answered ? String(response) : "", correct, omission: !answered, false_alarm: answered && !correct,
+        score: correct ? 1 : 0, rt, decision_time: answered ? 0 : null, total_rt: rt,
+      });
+    };
+    const start = () => {
+      root.style.visibility = "visible";
+      t0 = performance.now();                       // 자극(그림+보기)이 모두 그려진 시점
+      root.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-opt]");
+        if (!b || finished || response !== null) return;
+        response = Number(b.dataset.opt); firstT = performance.now();
+        if (trial.practice && response !== it.ans) b.classList.add("wrong"); else b.classList.add("sel");   // 연습: 정답=파랑, 오답=빨강
+        setTimeout(() => end(false), trial.practice ? 800 : 180);
+      });
+      if (trial.limit_ms > 0) {
+        tickId = setInterval(() => {
+          const remaining = Math.max(0, Math.ceil((trial.limit_ms - (performance.now() - t0)) / 1000));
+          if (remaining <= WARN_SEC && remaining > 0) { badge.textContent = `${CFG.timerIcon} ${remaining}`; badge.classList.add("on"); }
+        }, 200);
+        timeoutId = setTimeout(() => end(true), trial.limit_ms);
+      }
+    };
+    Promise.all([loadImg(sUrl(it)), loadImg(oUrl(it))]).then(start);
+  }
+}
+
+const CSV_COLUMNS = [
+  "code_name", "language", "item_index", "stimulus_id", "time_limit_sec", "correct_answer", "response",
+  "correct", "omission", "false_alarm", "score", "rt", "decision_time", "total_rt", "administered",
+];
+function buildFilteredCSVString() {
+  const rows = jsPsych.data.get().filter({ phase: "logic_item" }).values();
+  const byIndex = {};
+  rows.forEach((r) => { byIndex[r.item_index] = r; });
+  const out = ITEMS.map((it) => {
+    const base = { language: CFG.lang, item_index: it.n, stimulus_id: it.label, time_limit_sec: it.limit, correct_answer: it.ans };
+    base.code_name = subjectId;
+    const r = byIndex[it.n];
+    return r ? { ...r, ...base, administered: true } : { ...base, administered: false };
+  });
+  return toCSV(CSV_COLUMNS, out);
+}
+
+const jsPsych = makeJsPsych(TEST_ID);
+const timeline = [heroTrial("images/title-slide.png")];
+const S = CFG.instr;
+const info = (html, mock_html, extra = {}) => Object.assign({
+  type: InfoScreenPlugin, tag: CFG.tag, body_html: `<div class="info-box">${html}</div>`, mockup_html: mock_html,
+  buttons: ["→"], use_arrow_nav: true,
+}, extra);
+
+// ── 1) 예시 문제 설명 → 연습하기 안내 (설명 다시 듣기를 누르면 이 구간만 반복) ──
+const explainBlock = [
+  info(S[0], mock({ blank: "pink" })),
+  info(S[1], mock({ hlOpts: [1, 2, 3, 4, 5, 6] })),
+  info(S[1], mock({ hlOpts: [EXAMPLE.ans] }), { after_render: blankAnim() }),
+  info(S[2], `<div class="mini-wrap"><div class="mini-inner">${mock({})}</div></div>`, { buttons: [CFG.replayBtn, CFG.practiceBtn], use_arrow_nav: false }),
+];
+
+// ── 2) 연습 문제 4개 + 결과 확인 ──
+function resultsHTML(from, to) {
+  const last = jsPsych.data.get().filter({ phase: "logic_practice" }).values().slice(-4);
+  return `<div>${PRACTICE.slice(from, to).map((it, k) => {
+    const r = last[from + k];
+    const chosen = r && r.response ? Number(r.response) : 0;
+    const opts = [1, 2, 3, 4, 5, 6].map((o) =>
+      `<div class="lg-res-opt ${chosen === o ? "chosen" + (o !== it.ans ? " wrong" : "") : ""}" style="background-image:url(${oUrl(it)});background-position:${posOf(o)};aspect-ratio:${it.ow}/${it.oh}"></div>`).join("");
+    return `<div class="lg-res-row"><div class="lg-res-stim"><img src="${sUrl(it)}" alt=""></div>${opts}</div>`;
+  }).join("")}</div>`;
+}
+const practiceBlock = [];
+PRACTICE.forEach((it) => practiceBlock.push({
+  type: LogicItemPlugin, item: it, practice: true, label: `${CFG.practiceWord} ${it.n}`,
+  progress: CFG.progress(String(it.n), String(PRACTICE.length)),
+  data: { phase: "logic_practice", practice_index: it.n },
+}));
+practiceBlock.push(info(S[3], () => resultsHTML(0, 2)));
+practiceBlock.push(info(S[3], () => resultsHTML(2, 4)));
+practiceBlock.push(info(S[4], () => resultsHTML(2, 4), { buttons: [CFG.replayBtn, CFG.beginBtn], use_arrow_nav: false }));
+
+timeline.push({
+  timeline: [
+    { timeline: explainBlock, loop_function: (d) => { const v = d.values(); return v[v.length - 1].response === CFG.replayBtn; } },
+    { timeline: practiceBlock },
+  ],
+  loop_function: (d) => { const v = d.values(); return v[v.length - 1].response === CFG.replayBtn; },
+});
+
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: () => transitionScreen([
+    "Khi hết thời gian",
+    "quy định cho mỗi câu hỏi,",
+    "hệ thống sẽ tự động",
+    "chuyển sang",
+    "câu tiếp theo.",
+  ]),
+  choices: "NO_KEYS",
+  trial_duration: 2500,
+});
+timeline.push({
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: () => transitionScreen([
+    "Hãy trả lời",
+    "<b>nhanh và chính xác</b>",
+    "nhất có thể.",
+  ]),
+  choices: "NO_KEYS",
+  trial_duration: 2500,
+});
+
+// ── 3) 본 검사 30문항 (5문항 연속 0점이면 중지) ──
+let consecutiveZero = 0;
+ITEMS.forEach((item) => {
+  timeline.push({
+    conditional_function: () => !(USE_STOP_RULE && consecutiveZero >= STOP_AFTER),
+    timeline: [{
+      type: LogicItemPlugin, item, label: "", limit_ms: item.limit * 1000,
+      data: { phase: "logic_item", item_index: item.n },
+      on_finish: (d) => { consecutiveZero = d.score > 0 ? 0 : consecutiveZero + 1; },
+    }],
+  });
+});
+timeline.push(endScreen());
+jsPsych.run(timeline);
+
+</script>
+</html>
