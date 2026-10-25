@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>검사 선택</title>
+<style>
+  html,body{min-height:100%;margin:0;background:#f4f6fb;font-family:'Noto Sans KR','Segoe UI',sans-serif;}
+  body{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+  .wrap{text-align:center;padding:24px 16px;}
+  .step{font-size:15px;color:#7a86a3;margin-bottom:6px;}
+  h1{font-size:26px;color:#1c3f94;margin:0 0 28px;}
+  .cols{display:flex;gap:56px;justify-content:center;align-items:flex-start;flex-wrap:wrap;}
+  .col{display:flex;flex-direction:column;gap:16px;width:240px;}
+  .col h2{margin:0 0 6px;font-size:19px;color:#1c3f94;padding-bottom:10px;border-bottom:3px solid #2554c7;}
+  a.card,button.card,.card.disabled{display:block;padding:26px 16px;text-align:center;box-sizing:border-box;
+    background:#fff;border:2px solid #2554c7;border-radius:20px;color:#1c3f94;
+    font-size:21px;font-weight:700;text-decoration:none;box-shadow:0 10px 24px rgba(37,84,199,0.15);}
+  a.card:hover,button.card:hover{background:#eaf0fd;}
+  .card.disabled{border-color:#c9d1e6;color:#9aa5c3;box-shadow:none;background:#f1f3f9;cursor:default;}
+  .card.disabled small{display:block;font-size:13px;font-weight:500;margin-top:4px;}
+  a.back{display:inline-block;margin-top:34px;color:#7a86a3;font-size:15px;text-decoration:none;}
+  /* ── 코드명 입력 화면 ── */
+  #codeGate{display:none;}
+  .code-box{width:320px;margin:0 auto;}
+  .code-box input{width:100%;box-sizing:border-box;padding:16px 18px;font-size:20px;border:2px solid #c3d6ee;
+    border-radius:14px;font-family:inherit;text-align:center;outline:none;}
+  .code-box input:focus{border-color:#2554c7;}
+  .code-box .hint{color:#7a86a3;font-size:14px;margin:10px 0 22px;}
+  .code-box .err{color:#e53935;font-size:14px;min-height:18px;margin-bottom:8px;}
+  .code-box button{display:block;width:100%;padding:15px 0;border:none;border-radius:40px;background:#2554c7;
+    color:#fff;font-weight:700;font-size:20px;cursor:pointer;font-family:inherit;}
+  .code-box button:hover{background:#1c3f94;}
+  .code-note{margin-top:18px;color:#7a86a3;font-size:14px;}
+  .code-note button{background:none;border:none;color:#2554c7;font-weight:700;font-size:14px;cursor:pointer;
+    text-decoration:underline;font-family:inherit;padding:0;}
+  #testStep{display:none;}
+  .current-code{display:inline-flex;align-items:center;gap:10px;background:#fff;border:2px solid #dde6f6;
+    border-radius:30px;padding:8px 18px;font-size:15px;color:#2b3a5a;margin:0 0 24px;}
+  .current-code b{color:#1c3f94;}
+  .current-code button{background:none;border:none;color:#2554c7;font-size:13px;font-weight:700;cursor:pointer;
+    text-decoration:underline;font-family:inherit;padding:0;}
+  /* ── 소검사 선택(여러 개 선택 → 순서대로 자동 진행) ── */
+  button.card{cursor:pointer;font-family:inherit;width:100%;position:relative;}
+  button.card.on{background:#eaf0fd;border-color:#2554c7;box-shadow:0 0 0 3px #2554c7 inset,0 10px 24px rgba(37,84,199,0.15);}
+  button.card .ord{display:none;position:absolute;top:-10px;right:-10px;width:30px;height:30px;border-radius:50%;
+    background:#2554c7;color:#fff;font-size:16px;line-height:30px;font-weight:700;}
+  button.card.on .ord{display:block;}
+  .pick-hint{color:#667;font-size:15px;margin:0 0 20px;}
+  .pick-tools{margin:26px 0 0;display:flex;gap:18px;justify-content:center;}
+  .pick-tools button.link{background:none;border:none;color:#2554c7;font-weight:700;font-size:15px;cursor:pointer;
+    text-decoration:underline;font-family:inherit;padding:0;}
+  .start-btn{display:block;margin:18px auto 0;min-width:260px;padding:16px 36px;border:none;border-radius:40px;background:#2554c7;
+    color:#fff;font-weight:700;font-size:20px;cursor:pointer;font-family:inherit;}
+  .start-btn:hover{background:#1c3f94;}
+  .start-btn:disabled{background:#b9c7ea;cursor:not-allowed;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- ── 참가자 코드명 입력: 처음 들어오면 코드명을 입력해야 검사 선택으로 넘어갑니다.
+         한 번 입력하면 이 브라우저에 저장되어(localStorage) 이후에는 바로 검사 선택이 보입니다. ── -->
+    <div id="codeGate">
+      <div class="step">2 / 2</div>
+      <h1>참가자 코드명 입력</h1>
+      <div class="code-box">
+        <div class="hint">데이터 구분을 위해 참가자 코드명을 입력해 주세요.</div>
+        <div class="err" id="codeErr"></div>
+        <input type="text" id="codeInput" placeholder="예) A01" maxlength="40" autocomplete="off" />
+        <br /><br />
+        <button id="codeSubmit">다음</button>
+      </div>
+    </div>
+    <div id="testStep">
+      <div class="step">2 / 2</div>
+      <h1>검사 선택</h1>
+      <div class="current-code">
+        코드명 <b id="codeDisplay"></b>
+        <button id="codeChange">변경</button>
+      </div>
+      <p class="pick-hint">검사할 소검사를 선택해 주세요. 선택한 순서대로 자동으로 이어서 진행됩니다.</p>
+      <div class="cols">
+        <!-- 새 검사를 추가할 때는 폴더(ko/폴더명, vi/폴더명)를 만든 뒤, 해당 영역에 한 줄만 추가하세요:
+             <button type="button" class="card" data-test="폴더명">검사 이름<span class="ord"></span></button>
+             아직 준비되지 않은 검사는 <span class="card disabled">이름<small>준비 중</small></span> 로 두었다가, 완성되면 <a> 로 바꾸면 됩니다. -->
+        <section class="col">
+          <h2>언어이해표현</h2>
+          <button type="button" class="card" data-test="math">수리계산<span class="ord"></span></button>
+          <button type="button" class="card" data-test="common_meaning">공통의미<span class="ord"></span></button>
+          <button type="button" class="card" data-test="vocabulary">단어이해<span class="ord"></span></button>
+        </section>
+        <section class="col">
+          <h2>지각운동협응</h2>
+          <button type="button" class="card" data-test="perceptual_org">지각조직<span class="ord"></span></button>
+          <button type="button" class="card" data-test="motor">지각운동<span class="ord"></span></button>
+          <button type="button" class="card" data-test="logic">논리추론<span class="ord"></span></button>
+        </section>
+      </div>
+      <div class="pick-tools"><button type="button" class="link" id="pickAll">전체 선택</button><button type="button" class="link" id="pickNone">선택 해제</button></div>
+      <button type="button" class="start-btn" id="startBtn" disabled>검사 시작</button>
+      <a class="back" href="../index.html">← 언어 다시 선택</a>
+    </div>
+  </div>
+<script>
+// 참가자 코드명은 이 브라우저(localStorage)에 저장되어, 같은 참가자가 여러 소검사를
+// 이어서 볼 때마다 다시 입력하지 않아도 되고, 각 소검사의 CSV 파일/데이터에도 그대로 실립니다.
+const CODE_KEY = "vit_participant_code";
+const gate = document.getElementById("codeGate");
+const step = document.getElementById("testStep");
+const input = document.getElementById("codeInput");
+const err = document.getElementById("codeErr");
+
+function showTestStep(code) {
+  document.getElementById("codeDisplay").textContent = code;
+  gate.style.display = "none";
+  step.style.display = "block";
+}
+function showGate(prefill) {
+  gate.style.display = "block";
+  step.style.display = "none";
+  input.value = prefill || "";
+  err.textContent = "";
+  setTimeout(() => input.focus(), 0);
+}
+function submitCode() {
+  const v = input.value.trim();
+  if (!v) { err.textContent = "코드명을 입력해 주세요."; input.focus(); return; }
+  localStorage.setItem(CODE_KEY, v);
+  showTestStep(v);
+}
+document.getElementById("codeSubmit").addEventListener("click", submitCode);
+input.addEventListener("keydown", (e) => { if (e.key === "Enter") submitCode(); });
+document.getElementById("codeChange").addEventListener("click", () => showGate(localStorage.getItem(CODE_KEY)));
+
+// 이전 수검자의 코드명이 남아 있어 엉뚱한 코드로 저장되는 일을 막기 위해, 메뉴를 열 때마다 코드명을 다시 확인받습니다
+// (이전 코드명이 미리 채워져 있으므로 같은 사람이면 Enter 한 번이면 됩니다).
+showGate(localStorage.getItem(CODE_KEY) || "");
+
+// ── 소검사 선택 → 선택한 순서대로 이어서 진행 ──
+// 선택 목록은 localStorage("vit_queue")에 저장되고, 각 검사 페이지(assets/flow.js)가 끝날 때마다
+// 데이터를 저장(코드명_소검사명.csv)한 뒤 다음 검사 페이지로 자동 이동합니다.
+try { localStorage.removeItem("vit_queue"); localStorage.removeItem("vit_stash"); } catch (e) {}   // 이전에 끝나지 않은 진행 기록은 지웁니다
+// ▼ 준비 중으로 막아둘 검사 목록. 막으려면 이 한 줄에 폴더명을 넣으세요. 예) const DISABLED_TESTS = ["motor", "logic"];  (지금은 모두 열려 있음)
+const DISABLED_TESTS = [];
+document.querySelectorAll("button.card[data-test]").forEach((c) => {
+  if (!DISABLED_TESTS.includes(c.dataset.test)) return;
+  const s = document.createElement("span");
+  s.className = "card disabled";
+  s.innerHTML = c.childNodes[0].textContent + "<small>준비 중</small>";
+  c.replaceWith(s);
+});
+const picked = [];
+const startBtn = document.getElementById("startBtn");
+const cards = Array.from(document.querySelectorAll("button.card[data-test]"));
+function refreshPick() {
+  cards.forEach((c) => {
+    const i = picked.indexOf(c.dataset.test);
+    c.classList.toggle("on", i >= 0);
+    c.querySelector(".ord").textContent = i >= 0 ? i + 1 : "";
+  });
+  startBtn.disabled = picked.length === 0;
+  startBtn.textContent = picked.length ? "검사 시작 ({n}개)".replace("{n}", picked.length) : "검사 시작";
+}
+cards.forEach((c) => c.addEventListener("click", () => {
+  const t = c.dataset.test, i = picked.indexOf(t);
+  if (i >= 0) picked.splice(i, 1); else picked.push(t);
+  refreshPick();
+}));
+document.getElementById("pickAll").addEventListener("click", () => {
+  picked.length = 0; cards.forEach((c) => picked.push(c.dataset.test)); refreshPick();
+});
+document.getElementById("pickNone").addEventListener("click", () => { picked.length = 0; refreshPick(); });
+startBtn.addEventListener("click", () => {
+  if (!picked.length) return;
+  localStorage.removeItem("vit_stash");   // 새 진행 시작: 이전 통합 파일용 보관본 삭제
+  localStorage.setItem("vit_queue", JSON.stringify({ tests: picked.slice(), idx: 0 }));
+  location.href = "./" + picked[0] + "/index.html";
+});
+refreshPick();
+</script>
+</body>
+</html>
